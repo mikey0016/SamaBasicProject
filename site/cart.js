@@ -59,7 +59,7 @@ function renderPage(){
       <div class="sum__row"><span>Yetkazib berish</span><strong>${shipping ? fmt(shipping) : "Bepul"}</strong></div>
       ${shipping ? `<p class="sum__hint">Yana 1 ta mahsulot qo'shsangiz yetkazish bepul bo'ladi</p>` : ""}
       <div class="sum__row sum__row--total"><span>Jami</span><strong>${fmt(total)}</strong></div>
-      <a href="checkout.html" class="btn btn--primary btn--block">Buyurtmani rasmiylashtirish</a>
+      <a href="checkout.html" class="btn btn--primary btn--block" data-checkout-btn>Buyurtmani rasmiylashtirish</a>
       <a href="shop.html" class="btn btn--ghost btn--block">Xaridni davom ettirish</a>
     </aside>`;
 }
@@ -69,10 +69,19 @@ function bindPage(){
     const inc = e.target.closest("[data-inc]");
     const dec = e.target.closest("[data-dec]");
     const rm  = e.target.closest("[data-remove]");
+    const checkout = e.target.closest("[data-checkout-btn]");
+
+    if(checkout && !cart.length){
+      e.preventDefault();
+      toast("Savat bo'sh, avval mahsulot tanlang");
+      return;
+    }
+
     if(inc) changeQty(+inc.dataset.inc, 1);
     if(dec) changeQty(+dec.dataset.dec, -1);
     if(rm)  removeItem(+rm.dataset.remove);
   });
+
   document.addEventListener("cart:change", renderPage);
   document.addEventListener("products:update", renderPage);
 }
