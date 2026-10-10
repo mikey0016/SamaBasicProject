@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: sama-adminbot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python adminbot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_IDS
+        value: "7692914031,7148674443"

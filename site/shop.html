@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Do'kon — Sama Basic</title>
+<meta name="description" content="Sama Basic do'koni — kiyimlar va aksessuarlar. Kategoriya, narx va rang bo'yicha filtrlang.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&family=Dancing+Script:wght@600;700&family=Inter:wght@800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<main class="section shop">
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="index.html">Bosh sahifa</a><span>/</span><strong>Do'kon</strong>
+    </nav>
+
+    <div class="section__head">
+      <p class="section__eyebrow">Do'kon</p>
+      <h1 class="section__title">Barcha mahsulotlar</h1>
+    </div>
+
+    <div class="shop__inner">
+      <!-- Sidebar -->
+      <aside class="filters-panel" id="filtersPanel">
+        <div class="fp__head">
+          <h3>Filtrlar</h3>
+          <button class="fp__clear" id="clearFilters">Tozalash</button>
+        </div>
+
+        <div class="fp__block">
+          <h4>Kategoriya</h4>
+          <div class="fp__list" id="catFilter">
+            <label class="radio"><input type="radio" name="cat" value="all" checked><span>Hammasi</span></label>
+            <label class="radio"><input type="radio" name="cat" value="kiyimlar"><span>Kiyimlar</span></label>
+            <label class="radio"><input type="radio" name="cat" value="aksessuarlar"><span>Aksessuarlar</span></label>
+          </div>
+        </div>
+
+        <div class="fp__block">
+          <h4>Narx (so'm)</h4>
+          <div class="fp__price">
+            <input type="number" id="minPrice" placeholder="dan" min="0" step="10000">
+            <span>—</span>
+            <input type="number" id="maxPrice" placeholder="gacha" min="0" step="10000">
+          </div>
+        </div>
+
+        <div class="fp__block">
+          <h4>Rang</h4>
+          <div class="fp__chips" id="colorFilter"></div>
+        </div>
+
+        <div class="fp__block">
+          <h4>O'lcham</h4>
+          <div class="fp__chips" id="sizeFilter"></div>
+        </div>
+
+        <div class="fp__block">
+          <label class="check"><input type="checkbox" id="saleOnly"><span>Faqat chegirmali</span></label>
+        </div>
+      </aside>
+
+      <!-- Natijalar -->
+      <div class="shop__main">
+        <div class="toolbar">
+          <button class="toolbar__filter" id="openFilters">☰ Filtrlar</button>
+          <span class="toolbar__count" id="resultCount">0 ta mahsulot</span>
+          <div class="toolbar__sort">
+            <label for="sortBy">Saralash:</label>
+            <select id="sortBy">
+              <option value="default">Standart</option>
+              <option value="price-asc">Narx: arzondan</option>
+              <option value="price-desc">Narx: qimmatdan</option>
+              <option value="rating">Reyting bo'yicha</option>
+              <option value="name">Nom (A–Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid--shop" id="productGrid"></div>
+        <div class="pager" id="pager"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="siteFooter"></div>
+
+<script src="common.js?v=5"></script>
+<script src="layout.js?v=2"></script>
+<script src="shop.js?v=3"></script>
+</body>
+</html>

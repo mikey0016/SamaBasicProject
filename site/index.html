@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sama Basic — Kiyimlar va Aksessuarlar</title>
+<meta name="description" content="Sama Basic — minimal kiyimlar va aksessuarlar do'koni. Asosiy, sifatli va zamonaviy basic buyumlar.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<!-- ===== Hero ===== -->
+<section class="hero" id="home">
+  <div class="container hero__inner">
+    <div class="hero__text">
+      <p class="hero__eyebrow">Yangi kolleksiya · 2026</p>
+      <h1 class="hero__title">Asosiy narsalar.<br><em>Mukammal uslub.</em></h1>
+      <p class="hero__desc">Sama Basic — kundalik hayot uchun minimal, sifatli kiyim va aksessuarlar. Ortiqcha bezaksiz, faqat sizga kerak bo'lgan narsa.</p>
+      <div class="hero__actions">
+        <a href="shop.html" class="btn btn--primary">Xarid qilish</a>
+        <a href="#about" class="btn btn--ghost">Batafsil</a>
+      </div>
+      <ul class="hero__meta">
+        <li><strong>100%</strong><span>Sifatli mato</span></li>
+        <li><strong>24/7</strong><span>Buyurtma qabuli</span></li>
+        <li><strong>5 kun</strong><span>Yetkazib berish</span></li>
+      </ul>
+    </div>
+    <div class="hero__media">
+      <div class="hero__img hero__img--main"><img src="assets/p1.jpg" alt="Sama Basic mahsulot"></div>
+      <div class="hero__img hero__img--small"><img src="assets/p2.jpg" alt="Sama Basic aksessuar"></div>
+      <div class="hero__badge">olive<br><span>#343c24</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Marquee ===== -->
+<div class="marquee">
+  <div class="marquee__track">
+    <span>KIYIMLAR ✦ AKSESSUARLAR ✦ MINIMAL ✦ BASIC ✦ SIFAT ✦ Sama Basic ✦</span>
+    <span>KIYIMLAR ✦ AKSESSUARLAR ✦ MINIMAL ✦ BASIC ✦ SIFAT ✦ Sama Basic ✦</span>
+  </div>
+</div>
+
+<!-- ===== Categories ===== -->
+<section class="section" id="categories">
+  <div class="container">
+    <div class="section__head">
+      <p class="section__eyebrow">Kategoriyalar</p>
+      <h2 class="section__title">Nima qidirayapsiz?</h2>
+    </div>
+    <div class="cats">
+      <a class="cat cat--big" href="shop.html?cat=kiyimlar">
+        <img src="assets/p1.jpg" alt="Kiyimlar">
+        <div class="cat__overlay">
+          <h3>Kiyimlar</h3>
+          <p>Futbolka, ko'ylak, shim, ustki kiyim</p>
+          <span class="cat__link">Ko'rish →</span>
+        </div>
+      </a>
+      <a class="cat" href="shop.html?cat=aksessuarlar">
+        <img src="assets/p2.jpg" alt="Aksessuarlar">
+        <div class="cat__overlay">
+          <h3>Aksessuarlar</h3>
+          <p>Sumka, kamar, zargarlik, ko'zoynak</p>
+          <span class="cat__link">Ko'rish →</span>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Shop (tanlangan) ===== -->
+<section class="section section--tint" id="shop">
+  <div class="container">
+    <div class="section__head section__head--row">
+      <div>
+        <p class="section__eyebrow">Do'kon</p>
+        <h2 class="section__title">Tanlangan mahsulotlar</h2>
+      </div>
+      <a href="shop.html" class="btn btn--ghost">Barchasini ko'rish</a>
+    </div>
+    <div class="grid" id="productGrid"></div>
+  </div>
+</section>
+
+<!-- ===== About ===== -->
+<section class="section" id="about">
+  <div class="container about">
+    <div class="about__media">
+      <img src="assets/logo.jpg" alt="Sama Basic logotipi">
+    </div>
+    <div class="about__text">
+      <p class="section__eyebrow">Biz haqimizda</p>
+      <h2 class="section__title">Minimalizm — bu bizning tilimiz</h2>
+      <p>Sama Basic — "basic" ya'ni asosiy narsalarga e'tibor qaratadigan brend. Biz har bir buyumni shunday yaratamizki, u yillar davomida siz bilan qolsin. Sifat, qulaylik va sodda dizayn — bu bizning asosiy qadriyatlarimiz.</p>
+      <p>Logotipimizdagi to'q zaytun yashil rang — tabiiylik, xotirjamlik va barqarorlikni bildiradi.</p>
+      <ul class="about__list">
+        <li>Tabiiy va mustahkam matolar</li>
+        <li>Har bir o'lcham mavjud</li>
+        <li>Xato/brak tovarda qaytarish bor</li>
+      </ul>
+      <a href="https://www.instagram.com/sama_basic" target="_blank" rel="noopener" class="btn btn--primary">Instagramda ko'rish</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Telegram kanal ===== -->
+<section class="newsletter">
+  <div class="container newsletter__inner">
+    <div>
+      <h2>Telegram kanalimizga obuna bo'ling</h2>
+      <p>Chegirmalar, promokodlar va yangi mahsulotlar — birinchi bo'lib biling.</p>
+    </div>
+    <a class="btn btn--primary" href="https://t.me/para_kiyim_parnie_futbolki" target="_blank" rel="noopener">✈ Kanalga obuna bo'lish</a>
+  </div>
+</section>
+
+<div id="siteFooter"></div>
+
+<script src="common.js?v=5"></script>
+<script src="layout.js?v=2"></script>
+<script src="script.js?v=2"></script>
+</body>
+</html>

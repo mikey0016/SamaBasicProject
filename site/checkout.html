@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buyurtmani rasmiylashtirish — Sama Basic</title>
+<meta name="description" content="Buyurtmani rasmiylashtirish — yetkazib berish manzili va to'lov usulini tanlang.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<main class="section checkout">
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="index.html">Bosh sahifa</a><span>/</span>
+      <a href="cart.html">Savat</a><span>/</span><strong>Buyurtma</strong>
+    </nav>
+
+    <div class="section__head">
+      <p class="section__eyebrow">Buyurtma</p>
+      <h1 class="section__title">Buyurtmani rasmiylashtirish</h1>
+    </div>
+
+    <div class="checkout__inner" id="checkoutInner"></div>
+  </div>
+</main>
+
+<div id="siteFooter"></div>
+
+<div class="polmodal" id="policyModal" aria-hidden="true">
+  <div class="polmodal__back" data-polclose></div>
+  <div class="polmodal__box" role="dialog" aria-modal="true">
+    <h3>⚠️ Qaytarish qoidasi</h3>
+    <ul>
+      <li>Buyurtma uchun <b>50% oldindan to'lov</b> qilinadi.</li>
+      <li>Qaytarish <b>faqat bizning xatolikda</b>: noto'g'ri yoki brak tovar yuborilsa.</li>
+      <li>O'lcham/rang tanlashdagi xatolikka <b>qaytarish yo'q</b> — o'lcham jadvalini tekshiring.</li>
+      <li>Maksimal <b>5 kun</b> ichida yetkaziladi.</li>
+    </ul>
+    <div class="polmodal__act">
+      <button class="btn btn--ghost" data-polclose>Bekor qilish</button>
+      <button class="btn btn--primary" id="policyOk">Tushundim, davom etish</button>
+    </div>
+  </div>
+</div>
+
+<script src="common.js?v=5"></script>
+<script src="layout.js?v=2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="checkout.js?v=6"></script>
+</body>
+</html>

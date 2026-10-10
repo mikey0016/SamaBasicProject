@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAMA BASIC — Asosiy narsalar</title>
+<meta name="description" content="SAMA BASIC — minimal kiyimlar va aksessuarlar. Qorong'i, zamonaviy, bir sahifalik do'kon.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="style.css?v=6">
+<script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+
+<!-- ===== Grain / overlay ===== -->
+<div class="grain"></div>
+
+<!-- ===== Header ===== -->
+<header class="top" id="top">
+  <div class="wrap top__in">
+    <a href="#hero" class="logo">
+      <img src="assets/logo.jpg" alt="SAMA BASIC">
+      <span>SAMA<i>BASIC</i></span>
+    </a>
+
+    <nav class="menu" id="menu">
+      <a href="#hero">Bosh</a>
+      <a href="#collection">Kolleksiya</a>
+      <a href="#shop">Mahsulotlar</a>
+      <a href="#lookbook">Lookbook</a>
+      <a href="#story">Brend</a>
+    </nav>
+
+    <div class="top__act">
+      <button class="ic" id="cartOpen" aria-label="Savat">
+        <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M7 4h-2l-1 2H2v2h2l2.6 9.6A2 2 0 008.5 19h9a2 2 0 002-1.6L22 8H6l.7 2H19.4l-1.7 6H8.6L7 4zM9 20.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm9 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/></svg>
+        <b class="badge" id="cartBadge">0</b>
+      </button>
+      <button class="burger" id="burger" aria-label="Menyu"><i></i><i></i><i></i></button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="hero" id="hero">
+  <div class="hero__bg"><img src="assets/bc.png" alt=""></div>
+  <div class="wrap hero__in">
+    <p class="eyebrow reveal">Yangi kolleksiya · 2026</p>
+    <h1 class="poster reveal">
+      <span>SAMA</span>
+      <span class="poster__out">BASIC</span>
+    </h1>
+    <p class="hero__lead reveal">Asosiy narsalar. Mukammal uslub.<br>Kundalik hayot uchun minimal va sifatli kiyim hamda aksessuarlar.</p>
+    <div class="hero__cta reveal">
+      <a href="#shop" class="btn btn--fill">Kolleksiyani ko'rish</a>
+      <a href="#story" class="btn btn--line">Brend haqida</a>
+    </div>
+    <div class="hero__foot reveal">
+      <span><b>08</b> mahsulot</span>
+      <span><b>100%</b> sifat</span>
+      <span><b>5 kun</b> yetkazish</span>
+    </div>
+  </div>
+  <div class="hero__scroll">PASTGA <i>↓</i></div>
+</section>
+
+<!-- ===== Marquee ===== -->
+<div class="ticker">
+  <div class="ticker__row">
+    <span>KIYIMLAR ✦ AKSESSUARLAR ✦ MINIMAL ✦ BASIC ✦ ASOSIY NARSALAR ✦ SAMA BASIC ✦</span>
+    <span>KIYIMLAR ✦ AKSESSUARLAR ✦ MINIMAL ✦ BASIC ✦ ASOSIY NARSALAR ✦ SAMA BASIC ✦</span>
+  </div>
+</div>
+
+<!-- ===== Values ===== -->
+<section class="vals" id="values">
+  <div class="wrap vals__in">
+    <div class="val reveal"><b>01</b><h3>Tabiiy mato</h3><p>Paxta, zig'ir va jun — teri nafas oladigan materiallar.</p></div>
+    <div class="val reveal"><b>02</b><h3>Minimal dizayn</h3><p>Ortiqcha bezaksiz, faqat kerak bo'lgan narsa.</p></div>
+    <div class="val reveal"><b>03</b><h3>Uzoq muddatli</h3><p>Yillar davomida shaklini yo'qotmaydigan bichim.</p></div>
+    <div class="val reveal"><b>04</b><h3>Qulay narx</h3><p>Vositachisiz — ishlab chiqaruvchidan to'g'ridan-to'g'ri.</p></div>
+  </div>
+</section>
+
+<!-- ===== Collection ===== -->
+<section class="sec collection" id="collection">
+  <div class="wrap">
+    <div class="sec__head reveal">
+      <p class="eyebrow">Kolleksiya</p>
+      <h2 class="h2">Ikki yo'nalish</h2>
+    </div>
+    <div class="colls">
+      <a class="coll reveal" href="#shop" data-jump="kiyimlar">
+        <img src="assets/p1.jpg" alt="Kiyimlar">
+        <div class="coll__txt">
+          <span class="coll__no">01</span>
+          <h3>Kiyimlar</h3>
+          <p>Futbolka · ko'ylak · shim · ustki kiyim</p>
+          <i class="coll__go">Ko'rish →</i>
+        </div>
+      </a>
+      <a class="coll reveal" href="#shop" data-jump="aksessuarlar">
+        <img src="assets/p2.jpg" alt="Aksessuarlar">
+        <div class="coll__txt">
+          <span class="coll__no">02</span>
+          <h3>Aksessuarlar</h3>
+          <p>Sumka · kamar · sharf · ko'zoynak</p>
+          <i class="coll__go">Ko'rish →</i>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Shop ===== -->
+<section class="sec shop" id="shop">
+  <div class="wrap">
+    <div class="sec__head sec__head--row reveal">
+      <div>
+        <p class="eyebrow">Do'kon</p>
+        <h2 class="h2">Barcha mahsulotlar</h2>
+      </div>
+      <div class="tabs" id="tabs">
+        <button class="tab is-on" data-cat="all">Hammasi</button>
+        <button class="tab" data-cat="kiyimlar">Kiyimlar</button>
+        <button class="tab" data-cat="aksessuarlar">Aksessuarlar</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+</section>
+
+<!-- ===== Lookbook ===== -->
+<section class="sec look" id="lookbook">
+  <div class="wrap">
+    <div class="sec__head reveal">
+      <p class="eyebrow">Lookbook</p>
+      <h2 class="h2">Kuzgi kayfiyat</h2>
+    </div>
+    <div class="look__grid">
+      <figure class="look__a reveal"><img src="assets/views/p1_front.jpg" alt="Look 1"><figcaption>Look 01 — Olive</figcaption></figure>
+      <figure class="look__b reveal"><img src="assets/views/p2_detail.jpg" alt="Look 2"><figcaption>Look 02 — Basic</figcaption></figure>
+      <figure class="look__c reveal"><img src="assets/views/p1_back.jpg" alt="Look 3"><figcaption>Look 03 — Asosiy</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Story ===== -->
+<section class="sec story" id="story">
+  <div class="wrap story__in">
+    <div class="story__media reveal"><img src="assets/logo.jpg" alt="SAMA BASIC"></div>
+    <div class="story__txt reveal">
+      <p class="eyebrow">Brend haqida</p>
+      <h2 class="h2">Minimalizm — bizning tilimiz</h2>
+      <p>SAMA BASIC — "basic" ya'ni asosiy narsalarga e'tibor qaratadigan brend. Har bir buyumni shunday yaratamizki, u yillar davomida siz bilan qolsin.</p>
+      <p>Logotipdagi to'q zaytun yashil rang — tabiiylik, xotirjamlik va barqarorlikni bildiradi.</p>
+      <ul class="story__list">
+        <li>Tabiiy va mustahkam matolar</li>
+        <li>Har bir o'lcham mavjud</li>
+        <li>Xato/brak tovar bo'lsa qaytarish bor</li>
+      </ul>
+      <a href="https://www.instagram.com/sama_basic" target="_blank" rel="noopener" class="btn btn--line">Instagram @sama_basic</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CTA ===== -->
+<section class="cta">
+  <div class="wrap cta__in">
+    <h2 class="poster poster--sm reveal"><span>BIRINCHI</span> <span class="poster__out">BO'LING</span></h2>
+    <p class="reveal">Promokodlar, chegirmalar va yangi kolleksiya — Telegram kanalimizda.</p>
+    <a href="https://t.me/para_kiyim_parnie_futbolki" target="_blank" rel="noopener" class="btn btn--fill reveal">✈ Kanalga obuna bo'lish</a>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer class="foot" id="contact">
+  <div class="wrap foot__in">
+    <div class="foot__brand">
+      <img src="assets/logo.jpg" alt="SAMA BASIC">
+      <p>Kiyimlar va aksessuarlar. Asosiy narsalar, mukammal uslub.</p>
+    </div>
+    <div class="foot__col">
+      <h4>Bo'limlar</h4>
+      <a href="#collection">Kolleksiya</a>
+      <a href="#shop">Mahsulotlar</a>
+      <a href="#lookbook">Lookbook</a>
+      <a href="#story">Brend</a>
+    </div>
+    <div class="foot__col">
+      <h4>Aloqa</h4>
+      <a href="https://www.instagram.com/sama_basic" target="_blank" rel="noopener">Instagram @sama_basic</a>
+      <a href="https://t.me/para_kiyim_parnie_futbolki" target="_blank" rel="noopener">Telegram kanal ✈</a>
+      <a href="tel:+998900000000">+998 90 000 00 00</a>
+    </div>
+  </div>
+  <div class="wrap foot__bottom">
+    <span>© 2026 SAMA BASIC</span>
+    <span>Toshkent, O'zbekiston</span>
+  </div>
+</footer>
+
+<!-- ===== Product modal ===== -->
+<div class="modal" id="modal" aria-hidden="true">
+  <div class="modal__back" data-close></div>
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__x" data-close aria-label="Yopish">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<!-- ===== Cart drawer ===== -->
+<div class="cart" id="cart" aria-hidden="true">
+  <div class="cart__back" data-cart-close></div>
+  <aside class="cart__box">
+    <div class="cart__head">
+      <h3>Savat</h3>
+      <button class="ic" data-cart-close aria-label="Yopish">✕</button>
+    </div>
+    <div class="cart__body" id="cartBody"></div>
+    <div class="cart__foot">
+      <div class="cart__sum"><span>Jami</span><b id="cartSum">0 so'm</b></div>
+      <button class="btn btn--fill btn--full" id="orderBtn">Buyurtma berish</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ===== Order modal ===== -->
+<div class="modal" id="orderModal" aria-hidden="true">
+  <div class="modal__back" data-order-close></div>
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__x" data-order-close aria-label="Yopish">✕</button>
+    <div id="orderBody"></div>
+  </div>
+</div>
+
+<!-- ===== Policy modal ===== -->
+<div class="modal" id="policyModal" aria-hidden="true">
+  <div class="modal__back" data-polclose></div>
+  <div class="modal__box modal__box--sm" role="dialog" aria-modal="true">
+    <button class="modal__x" data-polclose aria-label="Yopish">✕</button>
+    <div class="policy">
+      <h3>⚠️ Qaytarish qoidasi</h3>
+      <ul>
+        <li>Buyurtma uchun <b>50% oldindan to'lov</b> qilinadi.</li>
+        <li>Qaytarish <b>faqat bizning xatolikda</b>: noto'g'ri yoki brak tovar yuborilsa.</li>
+        <li>O'lcham/rang tanlashdagi xatolikka <b>qaytarish yo'q</b>.</li>
+        <li>Maksimal <b>5 kun</b> ichida yetkaziladi.</li>
+      </ul>
+      <div class="policy__act">
+        <button class="btn btn--line" data-polclose>Bekor qilish</button>
+        <button class="btn btn--fill" id="policyOk">Tushundim, davom etish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="app.js?v=7"></script>
+</body>
+</html>

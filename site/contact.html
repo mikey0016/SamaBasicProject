@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aloqa — Sama Basic</title>
+<meta name="description" content="Sama Basic bilan bog'lanish — telefon, Instagram, Telegram va manzil.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<main class="section contact">
+  <div class="container">
+    <nav class="breadcrumb">
+      <a href="index.html">Bosh sahifa</a><span>/</span><strong>Aloqa</strong>
+    </nav>
+
+    <div class="section__head">
+      <p class="section__eyebrow">Aloqa</p>
+      <h1 class="section__title">Biz bilan bog'laning</h1>
+      <p class="section__sub">Savolingiz bormi? Yozing yoki qo'ng'iroq qiling — tez javob beramiz.</p>
+    </div>
+
+    <div class="contact__inner">
+      <div class="contact__cards">
+        <a class="ccard" href="https://www.instagram.com/sama_basic" target="_blank" rel="noopener">
+          <span class="ccard__icon">◎</span>
+          <div><h3>Instagram</h3><p>@sama_basic</p></div>
+        </a>
+        <a class="ccard" href="tel:+998900000000">
+          <span class="ccard__icon">☎</span>
+          <div><h3>Telefon</h3><p>+998 90 000 00 00</p></div>
+        </a>
+        <a class="ccard" href="https://t.me/para_kiyim_parnie_futbolki" target="_blank" rel="noopener">
+          <span class="ccard__icon">✈</span>
+          <div><h3>Telegram kanal</h3><p>Obuna bo'ling</p></div>
+        </a>
+        <div class="ccard">
+          <span class="ccard__icon">⌖</span>
+          <div><h3>Manzil</h3><p>Toshkent, O'zbekiston</p></div>
+        </div>
+
+        <form class="contact__form" id="contactForm">
+          <h3>Xabar yuboring</h3>
+          <div class="form__grid">
+            <label class="field"><span>Ism *</span><input name="name" required></label>
+            <label class="field"><span>Telefon yoki Telegram *</span><input name="contact" required></label>
+            <label class="field field--full"><span>Xabar *</span><textarea name="message" rows="4" required></textarea></label>
+          </div>
+          <button class="btn btn--primary" type="submit">Yuborish</button>
+        </form>
+      </div>
+
+      <aside class="contact__aside">
+        <div class="map">
+          <div class="map__pin">⌖</div>
+          <p>Sama Basic<br>Toshkent shahri</p>
+        </div>
+        <div class="hours">
+          <h3>Ish vaqti</h3>
+          <div><span>Dushanba – Juma</span><strong>09:00 – 20:00</strong></div>
+          <div><span>Shanba</span><strong>10:00 – 18:00</strong></div>
+          <div><span>Yakshanba</span><strong>Yopiq</strong></div>
+          <p class="hours__note">Onlayn buyurtmalar 24/7 qabul qilinadi.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<div id="siteFooter"></div>
+
+<script src="common.js?v=5"></script>
+<script src="layout.js?v=2"></script>
+<script src="contact.js?v=2"></script>
+</body>
+</html>

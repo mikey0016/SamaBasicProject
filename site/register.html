@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ro'yxatdan o'tish — Sama Basic</title>
+<meta name="description" content="Sama Basic'da yangi hisob yarating.">
+<link rel="icon" href="assets/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Cormorant+Garamond:wght@400;500;600&family=Dancing+Script:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=6">
+</head>
+<body>
+
+<div id="siteHeader"></div>
+
+<main class="section auth">
+  <div class="container auth__wrap">
+    <div class="auth__card">
+      <div class="auth__brand">
+        <img src="assets/logo.jpg" alt="Sama Basic" class="brand__logo">
+        <h1>Hisob yaratish</h1>
+        <p>Yangi hisob yarating — bir daqiqada.</p>
+      </div>
+
+      <!-- Ro'yxatdan o'tish -->
+      <form class="auth__form" id="registerForm">
+        <label class="field"><span>Ism *</span><input name="name" required placeholder="Ismingiz"></label>
+        <label class="field"><span>Email *</span><input type="email" name="email" required placeholder="siz@example.com"></label>
+        <label class="field"><span>Telefon</span><input name="phone" placeholder="+998 __ ___ __ __"></label>
+        <label class="field"><span>Parol *</span><input type="password" name="password" required minlength="4" placeholder="Kamida 4 belgi"></label>
+        <label class="check"><input type="checkbox" required><span>Shartlarga roziman</span></label>
+        <button class="btn btn--primary btn--block" type="submit">Ro'yxatdan o'tish</button>
+      </form>
+
+      <p class="auth__switch">Hisobingiz bormi? <a href="login.html">Kirish</a></p>
+
+      <p class="auth__note">Bu demo hisob — ma'lumotlar faqat brauzeringizda saqlanadi (server yo'q).</p>
+    </div>
+  </div>
+</main>
+
+<div id="siteFooter"></div>
+
+<script src="common.js?v=5"></script>
+<script src="layout.js?v=2"></script>
+<script src="login.js?v=3"></script>
+</body>
+</html>
