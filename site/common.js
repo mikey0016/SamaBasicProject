@@ -11,55 +11,7 @@ const TELEGRAM_BOT_TOKEN = "8975220527:AAHXUl4SixHdXAELqOdVWtU8WwZz3M3jASY";
 const TELEGRAM_ADMIN_IDS = [7692914031, 7148674443];
 
 // ---------- Mahsulotlar ----------
-const PRODUCTS = [
-  { id:1, name:"Oversize Basic Futbolka", cat:"kiyimlar", price:189000, old:229000, base:"p1", tag:"Yangi",
-    material:"100% paxta, 240 g/m²", sizes:["S","M","L","XL","XXL"], colors:["Oq","Qora","Olive"],
-    stock:12, rating:4.8, reviews:34,
-    desc:"Kundalik kiyish uchun og'ir paxta futbolka. Erkin oversize bichim, yelka choklari mustahkam. Yuvilgandan keyin shaklini yo'qotmaydi.",
-    care:"30°C da yuvish, dazmollash past haroratda." },
-
-  { id:2, name:"Olive Klassik Ko'ylak", cat:"kiyimlar", price:349000, old:null, base:"p2", tag:"Top",
-    material:"70% paxta, 30% zig'ir", sizes:["S","M","L","XL"], colors:["Olive","Bej","Ko'k"],
-    stock:8, rating:4.9, reviews:21,
-    desc:"Zaytun yashil klassik ko'ylak. Tabiiy mato nafas oladi, ofis va kundalik uchun mos. Minimal dizayn, ortiqcha bezaksiz.",
-    care:"Quruq tozalash yoki 30°C da nozik yuvish." },
-
-  { id:3, name:"Minimal Chinos Shim", cat:"kiyimlar", price:299000, old:379000, base:"p1", tag:"Chegirma",
-    material:"98% paxta, 2% elastan", sizes:["28","30","32","34","36"], colors:["Bej","Olive","Qora"],
-    stock:15, rating:4.7, reviews:45,
-    desc:"To'g'ri bichimli chinos shim. Bir oz elastan qo'shilgan, harakatlanishga qulay. Ham klassik, ham smart-casual uslubga mos.",
-    care:"30°C da yuvish, o'rtacha dazmol." },
-
-  { id:4, name:"To'q Yashil Kardigan", cat:"kiyimlar", price:459000, old:null, base:"p2", tag:null,
-    material:"50% jun, 50% akril", sizes:["S","M","L","XL"], colors:["To'q yashil","Kulrang"],
-    stock:6, rating:4.6, reviews:18,
-    desc:"Yumshoq trikotaj kardigan. Kuzgi va bahorgi ob-havoga ideal. Issiq, lekin og'ir emas.",
-    care:"Qo'lda yuvish tavsiya etiladi." },
-
-  { id:5, name:"Teri Aksessuar Sumkasi", cat:"aksessuarlar", price:520000, old:640000, base:"p2", tag:"Chegirma",
-    material:"Tabiiy teri", sizes:["One Size"], colors:["Olive","Jigarrang","Qora"],
-    stock:5, rating:4.9, reviews:29,
-    desc:"Qo'lda ishlangan tabiiy teri sumka. Ichki cho'ntaklar, mustahkam fermuar. Har kuni uchun nafis aksessuar.",
-    care:"Nam mato bilan artish, to'g'ridan-to'g'ri quyoshdan saqlash." },
-
-  { id:6, name:"Minimal Kamar", cat:"aksessuarlar", price:159000, old:null, base:"p1", tag:null,
-    material:"Tabiiy teri + metall tugma", sizes:["90cm","100cm","110cm"], colors:["Qora","Olive","Jigarrang"],
-    stock:20, rating:4.7, reviews:52,
-    desc:"Oddiy va mustahkam kamar. Har qanday shim va kiyimga mos keladi. Zanglamaydigan metall furnitura.",
-    care:"Quruq joyda saqlash." },
-
-  { id:7, name:"Basic Paxta Sharf", cat:"aksessuarlar", price:129000, old:169000, base:"p2", tag:"Chegirma",
-    material:"100% paxta", sizes:["One Size"], colors:["Olive","Krem","Kulrang"],
-    stock:18, rating:4.8, reviews:37,
-    desc:"Yumshoq paxta sharf. Bo'yinni himoya qiladi, minimal uslubni to'ldiradi. Har faslda kiyish mumkin.",
-    care:"30°C da yuvish." },
-
-  { id:8, name:"Zaytun Rang Ko'zoynak", cat:"aksessuarlar", price:239000, old:null, base:"p1", tag:"Yangi",
-    material:"Asetat ramka, UV400 linza", sizes:["One Size"], colors:["Zaytun","Qora"],
-    stock:10, rating:4.5, reviews:14,
-    desc:"Zaytun rang ramkali quyoshdan saqlovchi ko'zoynak. Yengil, UV400 himoya. Zamonaviy minimal dizayn.",
-    care:"Maxsus mato bilan artish." },
-];
+const PRODUCTS = [];
 
 // Galereya view'lari
 const VIEW_LABELS = ["Old ko'rinish", "Orqa ko'rinish", "Yaqin detal", "Zoom"];
@@ -322,7 +274,7 @@ function initOrderMap(){
 // ---------- Buyurtma yuborish (server orqali, bo'lmasa to'g'ridan-to'g'ri) ----------
 // Backend (bot/adminbot.py) manzili, masalan: "https://sama-bot.onrender.com"
 // Bo'sh bo'lsa buyurtma to'g'ridan-to'g'ri Telegram'ga ketadi (hozirgi rejim).
-const ORDER_API_URL = "https://rid-brass-llc-miscellaneous.trycloudflare.com";
+const ORDER_API_URL = "";
 
 // ---------- Bot orqali qo'shilgan mahsulotlarni serverdan yuklash ----------
 function loadServerProducts(){
@@ -339,10 +291,22 @@ function loadServerProducts(){
         sp.colors = (Array.isArray(sp.colors) && sp.colors.length) ? sp.colors : ["Standart"];
         const srcs = (Array.isArray(sp.images) && sp.images.length) ? sp.images : (sp.img ? [sp.img] : []);
         sp.gallery = srcs.map((s, i) => ({ src: /^https?:/.test(s) ? s : base + s, label: `Ko'rinish ${i + 1}` }));
+        if(!sp.gallery.length && sp.colorGalleries && typeof sp.colorGalleries === "object"){
+          const k0 = Object.keys(sp.colorGalleries)[0];
+          const a0 = k0 ? sp.colorGalleries[k0] : null;
+          if(Array.isArray(a0) && a0.length)
+            sp.gallery = a0.map((s, i) => ({ src: s, label: `Ko'rinish ${i + 1}` }));
+        }
         sp.img = sp.gallery.length ? sp.gallery[0].src : "assets/logo.jpg";
         sp.rating = sp.rating || 5;
         sp.reviews = sp.reviews || 0;
         sp.base = sp.base || "p1";
+        if(sp.colorGalleries && typeof sp.colorGalleries === "object"){
+          const cg = {};
+          for(const [k, arr] of Object.entries(sp.colorGalleries))
+            if(Array.isArray(arr)) cg[k] = arr.map(s => /^https?:/.test(s) ? s : base + s);
+          sp.colorGalleries = cg;
+        }
         sp.material = sp.material || "—";
         sp.desc = sp.desc || "Tavsif kiritilmagan";
         sp.care = sp.care || "Ko'rsatma yo'q";
@@ -363,7 +327,7 @@ async function submitOrder(order){
         body: JSON.stringify(order)
       });
       const j = await r.json();
-      if(j && j.ok) return { ok:true, via:"server", id:j.id };
+      if(j && j.ok) return { ok:true, via:"server", id:j.id, bot_url:j.bot_url };
       console.warn("Order API:", j);
     }catch(err){ console.warn("Order API:", err); }
   }

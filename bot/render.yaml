@@ -9,3 +9,15 @@ services:
         sync: false
       - key: ADMIN_IDS
         value: "7692914031,7148674443"
+      - key: DB_TYPE
+        value: "sqlite"
+      - key: MYSQL_HOST
+        sync: false
+      - key: MYSQL_PORT
+        value: "3306"
+      - key: MYSQL_USER
+        sync: false
+      - key: MYSQL_PASSWORD
+        sync: false
+      - key: MYSQL_DB
+        value: "samabasic"

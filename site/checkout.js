@@ -300,15 +300,48 @@ async function doSubmitOrder(order, form){
     toast("Yuborilmadi: " + res.error + ". Qayta urinib ko'ring");
     return;
   }
-  const viaServer = res.via === "server" && res.id;
+  const botUrl = res.bot_url || (res.via === "server" && res.id ? `https://t.me/${BOT_USERNAME}?start=ord_${res.id}` : "");
+  const viaServer = !!botUrl;
   showSuccess(order,
     res.skipped
       ? "Eslatma: Telegram bot ulanmagan (test rejim)."
       : viaServer
         ? "Buyurtma saqlandi ✓ Endi 50% to'lov uchun botga o'ting."
         : "Buyurtma adminga Telegram orqali yuborildi ✓",
-    viaServer ? { id: res.id } : null);
+    viaServer ? { url: botUrl } : null);
   clearCart();
+  // To'lov holatini kuzatish: botda tasdiqlangach yozuv yangilanadi
+  stopStatusPoll();
+  if(viaServer && res.id) statusTimer = setInterval(() => pollOrderStatus(res.id), 5000);
+}
+
+// ---------- Buyurtma holatini kuzatish (botda to'lov tasdiqlangach sayt yangilanadi) ----------
+let statusTimer = null, statusTries = 0;
+function stopStatusPoll(){
+  if(statusTimer){ clearInterval(statusTimer); statusTimer = null; }
+  statusTries = 0;
+}
+async function pollOrderStatus(oid){
+  const box = document.querySelector("#checkoutInner .botgo, #checkoutInner .bcheck");
+  if(!box){ stopStatusPoll(); return; }
+  if(++statusTries > 144){ stopStatusPoll(); return; } // ~12 daqiqa kuzatadi
+  try{
+    const r = await fetch(ORDER_API_URL.replace(/\/$/, "") + "/api/order?id=" + oid);
+    const j = await r.json();
+    if(!j || !j.ok) return;
+    const st = j.status;
+    if(st === "awaiting_confirm" && !box.classList.contains("bcheck")){
+      box.outerHTML = `<div class="botgo bcheck"><h3>📸 Chek qabul qilindi!</h3><p>Admin tekshirmoqda, kuting...</p></div>`;
+    }else if(["accepted","preparing","delivering","delivered","closed"].includes(st)){
+      stopStatusPoll();
+      const el = document.querySelector("#checkoutInner .botgo, #checkoutInner .bcheck");
+      if(el) el.outerHTML = `<div class="botgo"><div class="success__icon">✓</div><h3>Buyurtma qabul qilindi, rahmat! 🎉</h3><p>To'lovingiz tasdiqlandi. Tez orada bog'lanamiz.</p></div>`;
+    }else if(["rejected","cancelled"].includes(st)){
+      stopStatusPoll();
+      const el = document.querySelector("#checkoutInner .botgo, #checkoutInner .bcheck");
+      if(el) el.outerHTML = `<div class="botgo"><h3>❌ Buyurtma tasdiqlanmadi</h3><p>Chekda muammo topildi. Operatorimiz siz bilan bog'lanadi.</p></div>`;
+    }
+  }catch(e){}
 }
 
 const BOT_USERNAME = "samabasicbot";
@@ -334,8 +367,8 @@ function showSuccess(order, status, bot){
       <div class="botgo">
         <h3>Keyingi qadam — 50% to'lov 💳</h3>
         <p><b>${fmt(order.prepay)}</b> ni to'lang va chekni botga yuboring.</p>
-        <a class="btn btn--primary btn--block" href="https://t.me/${BOT_USERNAME}?start=ord_${bot.id}" target="_blank" rel="noopener">✈ Botga o'tish va chek yuborish</a>
-        <small>Chek tekshirilgach, buyurtma adminga o'tadi.</small>
+        <a class="btn btn--primary btn--block" href="${bot.url}" target="_blank" rel="noopener">✈ Botga o'tish va chek yuborish</a>
+        <small>⚠️ Aynan <b>${fmt(order.prepay)}</b> to'lang — ko'p ham, kam ham emas. Chek tekshirilgach, buyurtma adminga o'tadi.</small>
       </div>` : ""}
       <div class="success__actions">
         <a href="shop.html" class="btn btn--primary">Xaridni davom ettirish</a>

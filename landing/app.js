@@ -17,36 +17,12 @@ const VIEWS = [
   { key: "zoom",   label: "Zoom" },
 ];
 
-const PRODUCTS = [
-  { id:1, name:"Oversize Basic Futbolka", cat:"kiyimlar", price:189000, old:229000, base:"p1", tag:"Yangi",
-    material:"100% paxta, 240 g/m²", sizes:["S","M","L","XL","XXL"], colors:["Oq","Qora","Olive"], rating:4.8, reviews:34,
-    desc:"Kundalik kiyish uchun og'ir paxta futbolka. Erkin oversize bichim, yelka choklari mustahkam." },
-  { id:2, name:"Olive Klassik Ko'ylak", cat:"kiyimlar", price:349000, old:null, base:"p2", tag:"Top",
-    material:"70% paxta, 30% zig'ir", sizes:["S","M","L","XL"], colors:["Olive","Bej","Ko'k"], rating:4.9, reviews:21,
-    desc:"Zaytun yashil klassik ko'ylak. Tabiiy mato nafas oladi, ofis va kundalik uchun mos." },
-  { id:3, name:"Minimal Chinos Shim", cat:"kiyimlar", price:299000, old:379000, base:"p1", tag:"Chegirma",
-    material:"98% paxta, 2% elastan", sizes:["28","30","32","34","36"], colors:["Bej","Olive","Qora"], rating:4.7, reviews:45,
-    desc:"To'g'ri bichimli chinos shim. Elastan qo'shilgan, harakatlanishga qulay." },
-  { id:4, name:"To'q Yashil Kardigan", cat:"kiyimlar", price:459000, old:null, base:"p2", tag:null,
-    material:"50% jun, 50% akril", sizes:["S","M","L","XL"], colors:["To'q yashil","Kulrang"], rating:4.6, reviews:18,
-    desc:"Yumshoq trikotaj kardigan. Kuzgi va bahorgi ob-havoga ideal." },
-  { id:5, name:"Teri Aksessuar Sumkasi", cat:"aksessuarlar", price:520000, old:640000, base:"p2", tag:"Chegirma",
-    material:"Tabiiy teri", sizes:["One Size"], colors:["Olive","Jigarrang","Qora"], rating:4.9, reviews:29,
-    desc:"Qo'lda ishlangan tabiiy teri sumka. Ichki cho'ntaklar, mustahkam fermuar." },
-  { id:6, name:"Minimal Kamar", cat:"aksessuarlar", price:159000, old:null, base:"p1", tag:null,
-    material:"Tabiiy teri + metall", sizes:["90cm","100cm","110cm"], colors:["Qora","Olive","Jigarrang"], rating:4.7, reviews:52,
-    desc:"Oddiy va mustahkam kamar. Har qanday shim va kiyimga mos keladi." },
-  { id:7, name:"Basic Paxta Sharf", cat:"aksessuarlar", price:129000, old:169000, base:"p2", tag:"Chegirma",
-    material:"100% paxta", sizes:["One Size"], colors:["Olive","Krem","Kulrang"], rating:4.8, reviews:37,
-    desc:"Yumshoq paxta sharf. Bo'yinni himoya qiladi, minimal uslubni to'ldiradi." },
-  { id:8, name:"Zaytun Rang Ko'zoynak", cat:"aksessuarlar", price:239000, old:null, base:"p1", tag:"Yangi",
-    material:"Asetat ramka, UV400", sizes:["One Size"], colors:["Zaytun","Qora"], rating:4.5, reviews:14,
-    desc:"Zaytun rang ramkali quyoshdan saqlovchi ko'zoynak. Yengil, UV400 himoya." },
-];
+const PRODUCTS = [];
 
 PRODUCTS.forEach(p => {
   p.gallery = VIEWS.map(v => ({ src: `assets/views/${p.base}_${v.key}.jpg`, label: v.label }));
   p.img = p.gallery[0].src;
+  p.local = true; // mahalliy mahsulot — rang fayllarini konvensiya bo'yicha qidiramiz
 });
 
 const CATS = { kiyimlar: "Kiyimlar", aksessuarlar: "Aksessuarlar" };
@@ -56,6 +32,10 @@ const getP = id => PRODUCTS.find(p => p.id === +id);
 const fmt = n => n.toLocaleString("ru-RU").replace(/,/g, " ") + " so'm";
 const pct = p => p.old ? Math.round((1 - p.price / p.old) * 100) : 0;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+// Server nisbiy manzili (/api/...) ni backend bazasi bilan to'ldirish.
+// Mahalliy fayllar (assets/...) va tayyor http manzillarga tegilmaydi.
+const absUrl = s => (s && s.startsWith("/") && !/^https?:/.test(s))
+  ? ORDER_API_URL.replace(/\/$/, "") + s : s;
 
 // ---------- Holat ----------
 let cart = [];
@@ -72,6 +52,9 @@ const qtyInner = id => isQtyOpen(id)
   ? `<button data-dec="${id}">−</button><span data-val="${id}">${getCardQty(id)}</span><button data-inc="${id}">+</button>`
   : `<button class="qty__solo" data-inc="${id}" aria-label="Miqdor tanlash">+</button>`;
 let modalP = null, modalView = 0, modalSize = null, modalQty = 1;
+let pmTimer = null;
+let modalColor = null;
+const galleryCache = {}; // "id|rang" -> galereya yoki null
 
 const saveCart = () => localStorage.setItem("sb_landing_cart", JSON.stringify(cart));
 const cartCount = () => cart.reduce((s,c) => s + c.qty, 0);
@@ -229,7 +212,7 @@ function initOrderMap(){
 // ---------- Buyurtma yuborish (server orqali, bo'lmasa to'g'ridan-to'g'ri) ----------
 // Backend (bot/adminbot.py) manzili, masalan: "https://sama-bot.onrender.com"
 // Bo'sh bo'lsa buyurtma to'g'ridan-to'g'ri Telegram'ga ketadi (hozirgi rejim).
-const ORDER_API_URL = "https://rid-brass-llc-miscellaneous.trycloudflare.com";
+const ORDER_API_URL = "";
 const IMG_FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Crect width='400' height='400' fill='%23202418'/%3E%3Ctext x='50%25' y='50%25' font-size='26' fill='%23a9b18f' text-anchor='middle'%3ESama Basic%3C/text%3E%3C/svg%3E";
 
 // Bot orqali qo'shilgan mahsulotlarni serverdan yuklash
@@ -247,10 +230,23 @@ function loadServerProducts(){
         sp.colors = (Array.isArray(sp.colors) && sp.colors.length) ? sp.colors : ["Standart"];
         const srcs = (Array.isArray(sp.images) && sp.images.length) ? sp.images : (sp.img ? [sp.img] : []);
         sp.gallery = srcs.map((s, i) => ({ src: /^https?:/.test(s) ? s : base + s, label: `Ko'rinish ${i + 1}` }));
+        if(!sp.gallery.length && sp.colorGalleries && typeof sp.colorGalleries === "object"){
+          const k0 = Object.keys(sp.colorGalleries)[0];
+          const a0 = k0 ? sp.colorGalleries[k0] : null;
+          if(Array.isArray(a0) && a0.length)
+            sp.gallery = a0.map((s, i) => ({ src: absUrl(s), label: `Ko'rinish ${i + 1}` }));
+        }
         sp.img = sp.gallery.length ? sp.gallery[0].src : IMG_FALLBACK;
         sp.rating = sp.rating || 5;
         sp.reviews = sp.reviews || 0;
         sp.base = sp.base || "p1";
+        sp.local = false; // server mahsuloti — faqat colorGalleries xaritasi ishlaydi
+        if(sp.colorGalleries && typeof sp.colorGalleries === "object"){
+          const cg = {};
+          for(const [k, arr] of Object.entries(sp.colorGalleries))
+            if(Array.isArray(arr)) cg[k] = arr.map(s => /^https?:/.test(s) ? s : base + s);
+          sp.colorGalleries = cg;
+        }
         PRODUCTS.push(sp);
         added = true;
       });
@@ -268,7 +264,7 @@ async function submitOrder(order){
         body: JSON.stringify(order)
       });
       const j = await r.json();
-      if(j && j.ok) return { ok:true, via:"server", id:j.id };
+      if(j && j.ok) return { ok:true, via:"server", id:j.id, bot_url:j.bot_url };
       console.warn("Order API:", j);
     }catch(err){ console.warn("Order API:", err); }
   }
@@ -300,6 +296,7 @@ function cardHTML(p, i){
         <div class="pcard__price">
           <b>${fmt(p.price)}</b>${p.old ? `<s>${fmt(p.old)}</s>` : ""}
         </div>
+        <button class="pcard__more" data-open="${p.id}">Batafsil →</button>
         <div class="pcard__row">
           <div class="qty" data-q="${p.id}">
             ${qtyInner(p.id)}
@@ -324,6 +321,17 @@ function openModal(id){
   modalP = getP(id);
   if(!modalP) return;
   modalView = 0;
+  modalColor = null;
+  if(!modalP.gallery.length){
+    // Faqat rang rasmlari bor mahsulot — birinchisidan galereya yig'amiz
+    const cg = modalP.colorGalleries || {};
+    const k = Object.keys(cg)[0];
+    const a = k ? cg[k] : null;
+    modalP.gallery = (Array.isArray(a) && a.length)
+      ? a.map((s, i) => ({ src: absUrl(s), label: `Ko'rinish ${i + 1}` }))
+      : [{ src: IMG_FALLBACK, label: "Rasm yo'q" }];
+  }
+  if(!modalP._defGallery) modalP._defGallery = modalP.gallery;
   modalSize = modalP.sizes.length === 1 ? modalP.sizes[0] : null;
   modalQty = 1;
 
@@ -335,6 +343,8 @@ function openModal(id){
         <div class="pm__main">
           <img id="pmMain" src="${p.gallery[0].src}" alt="${esc(p.name)}">
           ${disc ? `<span class="pm__badge">-${disc}%</span>` : ""}
+          <button class="pm__nav pm__prev" id="pmPrev" aria-label="Oldingi rasm">‹</button>
+          <button class="pm__nav pm__next" id="pmNext" aria-label="Keyingi rasm">›</button>
         </div>
         <div class="pm__thumbs" id="pmThumbs">
           ${p.gallery.map((g,i) => `
@@ -392,19 +402,116 @@ function openModal(id){
 }
 
 function closeModal(){
+  pmStop();
   $("#modal").classList.remove("on");
   $("#modal").setAttribute("aria-hidden", "true");
   if(!$("#cart").classList.contains("on")) document.body.style.overflow = "";
+}
+
+// ---------- Mahsulot galereyasi: avto-slayd + surish ----------
+function pmShow(i){
+  if(!modalP) return;
+  const g = modalP.gallery;
+  modalView = (i + g.length) % g.length;
+  const m = $("#pmMain");
+  if(m) m.src = g[modalView].src;
+  $$("#pmThumbs .pm__thumb").forEach((el, k) => el.classList.toggle("on", k === modalView));
+}
+function pmStop(){
+  if(pmTimer){ clearInterval(pmTimer); pmTimer = null; }
+}
+function pmAuto(){
+  pmStop();
+  if(modalP && modalP.gallery.length > 1)
+    pmTimer = setInterval(() => pmShow(modalView + 1), 3000);
+}
+
+// ---------- Rang tanlanganda o'sha rangdagi rasmlar ----------
+const colorSlug = s => String(s || "").toLowerCase()
+  .replace(/o'/g, "o").replace(/g'/g, "g").replace(/['ʼ]/g, "")
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+function probeGallery(p, color){
+  const key = p.id + "|" + color;
+  if(key in galleryCache) return Promise.resolve(galleryCache[key]);
+  // 1) Tayyor xarita berilgan bo'lsa (server/admin tomonidan)
+  if(p.colorGalleries && p.colorGalleries[color] && p.colorGalleries[color].length){
+    const g = p.colorGalleries[color].map((s, i) => ({ src: s, label: `${color} — ${i + 1}` }));
+    galleryCache[key] = g;
+    return Promise.resolve(g);
+  }
+  // 2) Fayl konvensiyasi: assets/views/{base}-{rang}_{view}.jpg (faqat mahalliy)
+  const slug = p.local ? colorSlug(color) : "";
+  const baseN = (p._defGallery || p.gallery || []).length;
+  if(!slug || !p.base || !baseN){
+    galleryCache[key] = null;
+    return Promise.resolve(null);
+  }
+  const std = ["front", "back", "detail", "zoom"];
+  const keys = baseN === 4 ? std : Array.from({ length: baseN }, (_, i) => "v" + (i + 1));
+  const cands = keys.map((vk, i) => ({
+    src: `assets/views/${p.base}-${slug}_${vk}.jpg`, idx: i
+  }));
+  return Promise.all(cands.map(c => new Promise(res => {
+    const im = new Image();
+    im.onload = () => res(c);
+    im.onerror = () => res(null);
+    im.src = c.src;
+  }))).then(rs => {
+    const g = rs.filter(Boolean).sort((a, b) => a.idx - b.idx)
+      .map(c => ({ src: c.src, label: `${color} — ${c.idx + 1}` }));
+    galleryCache[key] = g.length ? g : null;
+    return galleryCache[key];
+  });
+}
+
+function applyGallery(g){
+  if(!modalP || !g || !g.length) return;
+  modalP.gallery = g.map(x => ({ src: absUrl(x.src), label: x.label }));
+  modalView = 0;
+  const m = $("#pmMain");
+  if(m) m.src = modalP.gallery[0].src;
+  const th = $("#pmThumbs");
+  if(th) th.innerHTML = modalP.gallery.map((gg, i) => `
+    <button class="pm__thumb ${i === 0 ? "on" : ""}" data-view="${i}">
+      <img src="${gg.src}" alt="${esc(gg.label)}" loading="lazy">
+    </button>`).join("");
+  pmAuto();
+}
+
+async function setModalColor(color){
+  modalColor = color;
+  $$("#pmColors .chip").forEach(el => el.classList.toggle("on", el.dataset.color === color));
+  if(!modalP) return;
+  const g = await probeGallery(modalP, color);
+  if(modalColor !== color || !modalP) return; // orada boshqa rang bosilgan
+  applyGallery(g && g.length ? g : (modalP._defGallery || modalP.gallery));
 }
 
 function bindModal(){
   $("#pmThumbs")?.addEventListener("click", e => {
     const t = e.target.closest("[data-view]");
     if(!t) return;
-    modalView = +t.dataset.view;
-    $("#pmMain").src = modalP.gallery[modalView].src;
-    $$("#pmThumbs .pm__thumb").forEach((el,i) => el.classList.toggle("on", i === modalView));
+    pmShow(+t.dataset.view);
+    pmAuto(); // qo'lda tanlangach taymer yangilanadi
   });
+
+  // Galereya: ustida tutilsa pauza, barmoq bilan surish
+  const gal = document.querySelector(".pm__gal");
+  if(gal){
+    gal.addEventListener("pointerenter", pmStop);
+    gal.addEventListener("pointerleave", pmAuto);
+    let swX = null;
+    gal.addEventListener("pointerdown", e => { swX = e.clientX; pmStop(); });
+    gal.addEventListener("pointerup", e => {
+      if(swX !== null){
+        const dx = e.clientX - swX;
+        if(Math.abs(dx) > 40) pmShow(modalView + (dx < 0 ? 1 : -1));
+      }
+      swX = null;
+      pmAuto();
+    });
+  }
 
   $("#pmSizes")?.addEventListener("click", e => {
     const c = e.target.closest("[data-size]");
@@ -417,12 +524,14 @@ function bindModal(){
   $("#pmColors")?.addEventListener("click", e => {
     const c = e.target.closest("[data-color]");
     if(!c) return;
-    $$("#pmColors .chip").forEach(el => el.classList.remove("on"));
-    c.classList.add("on");
+    setModalColor(c.dataset.color);
   });
 
   $("#pmDec")?.addEventListener("click", () => { modalQty = Math.max(1, modalQty - 1); $("#pmVal").textContent = modalQty; });
   $("#pmInc")?.addEventListener("click", () => { modalQty++; $("#pmVal").textContent = modalQty; });
+
+  $("#pmPrev")?.addEventListener("click", e => { e.stopPropagation(); pmShow(modalView - 1); pmAuto(); });
+  $("#pmNext")?.addEventListener("click", e => { e.stopPropagation(); pmShow(modalView + 1); pmAuto(); });
 
   $("#pmAdd")?.addEventListener("click", () => {
     if(modalP.sizes.length > 1 && !modalSize){ toast("Iltimos, o'lchamni tanlang"); return; }
@@ -430,6 +539,8 @@ function bindModal(){
     closeModal();
     openCart();
   });
+
+  pmAuto(); // oyna ochilganda avto-slayd boshlanadi
 }
 
 // ---------- Savat ----------
@@ -509,8 +620,9 @@ async function loadPayCard(){
 function renderPrepayCard(){
   const el = $("#prepayCardLine");
   if(!el) return;
+  const pretty = String(payCard || "").replace(/\D/g, "").replace(/(\d{4})(?=\d)/g, "$1 ");
   el.innerHTML = payCard
-    ? `💳 Oldindan to'lov kartasi (Click/Payme): <b>${payCard}</b>`
+    ? `💳 Oldindan to'lov (Click / Payme):<br><code class="paycard">${pretty || payCard}</code>`
     : `💳 50% oldindan to'lov: operatorimiz sizga karta yuboradi.`;
 }
 
@@ -567,7 +679,7 @@ function renderOrderForm(){
     <form id="orderForm" novalidate>
       <div class="orow">
         <label class="ofield"><span>Ism Familiya *</span><input name="name" required placeholder="Ali Valiyev"></label>
-        <label class="ofield"><span>Telefon *</span><input name="phone" required inputmode="tel" placeholder="+998 90 000 00 00"></label>
+        <label class="ofield"><span>Telefon *</span><input name="phone" required inputmode="tel" placeholder="+998 90 770 81 24"></label>
       </div>
       <div class="orow">
         <label class="ofield"><span>Viloyat / shahar *</span>
@@ -688,7 +800,8 @@ async function doSubmitLanding(order){
   if(!res.ok){ toast("Yuborilmadi: " + res.error + ". Qayta urinib ko'ring"); return; }
   cart = []; saveCart(); renderCart();
   // Muvaffaqiyat + botga o'tish (50% to'lov va chek uchun)
-  const viaServer = res.via === "server" && res.id;  $("#orderBody").innerHTML = `
+  const botUrl = res.bot_url || (res.via === "server" && res.id ? `https://t.me/${BOT_USERNAME}?start=ord_${res.id}` : "");
+  const viaServer = !!botUrl;  $("#orderBody").innerHTML = `
     <div class="osuccess">
       <div class="osuccess__icon">✓</div>
       <h2>Buyurtma ${order.no} qabul qilindi!</h2>
@@ -702,14 +815,46 @@ async function doSubmitLanding(order){
       <div class="obotgo">
         <h3>Keyingi qadam — 50% to'lov 💳</h3>
         <p><b>${fmt(order.prepay)}</b> ni to'lang va chekni botga yuboring.</p>
-        <a class="btn btn--fill btn--full" href="https://t.me/${BOT_USERNAME}?start=ord_${res.id}" target="_blank" rel="noopener">✈ Botga o'tish va chek yuborish</a>
-        <small>Chek tekshirilgach, buyurtma adminga o'tadi.</small>
+        <a class="btn btn--fill btn--full" href="${botUrl}" target="_blank" rel="noopener">✈ Botga o'tish va chek yuborish</a>
+        <small>⚠️ Aynan <b>${fmt(order.prepay)}</b> to'lang — ko'p ham, kam ham emas. Chek tekshirilgach, buyurtma adminga o'tadi.</small>
       </div>` : `<p class="reveal">Tez orada bog'lanamiz.</p>`}
     </div>`;
   // buyurtma modali yopilgan edi (qoida oynasi uchun) — natijani ko'rsatish uchun qayta ochamiz
   $("#orderModal").classList.add("on");
   $("#orderModal").setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
+  // To'lov holatini kuzatish: botda tasdiqlangach yozuv yangilanadi
+  stopStatusPoll();
+  if(viaServer && res.id) statusTimer = setInterval(() => pollOrderStatus(res.id), 5000);
+}
+
+// ---------- Buyurtma holatini kuzatish (botda to'lov tasdiqlangach sayt yangilanadi) ----------
+let statusTimer = null, statusTries = 0;
+function stopStatusPoll(){
+  if(statusTimer){ clearInterval(statusTimer); statusTimer = null; }
+  statusTries = 0;
+}
+async function pollOrderStatus(oid){
+  const box = document.querySelector("#orderBody .obotgo, #orderBody .ocheck");
+  if(!box){ stopStatusPoll(); return; }
+  if(++statusTries > 144){ stopStatusPoll(); return; } // ~12 daqiqa kuzatadi
+  try{
+    const r = await fetch(ORDER_API_URL.replace(/\/$/, "") + "/api/order?id=" + oid);
+    const j = await r.json();
+    if(!j || !j.ok) return;
+    const st = j.status;
+    if(st === "awaiting_confirm" && !box.classList.contains("ocheck")){
+      box.outerHTML = `<div class="obotgo ocheck"><h3>📸 Chek qabul qilindi!</h3><p>Admin tekshirmoqda, kuting...</p></div>`;
+    }else if(["accepted","preparing","delivering","delivered","closed"].includes(st)){
+      stopStatusPoll();
+      const el = document.querySelector("#orderBody .obotgo, #orderBody .ocheck");
+      if(el) el.outerHTML = `<div class="obotgo"><div class="osuccess__icon">✓</div><h3>Buyurtma qabul qilindi, rahmat! 🎉</h3><p>To'lovingiz tasdiqlandi. Tez orada bog'lanamiz.</p></div>`;
+    }else if(["rejected","cancelled"].includes(st)){
+      stopStatusPoll();
+      const el = document.querySelector("#orderBody .obotgo, #orderBody .ocheck");
+      if(el) el.outerHTML = `<div class="obotgo"><h3>❌ Buyurtma tasdiqlanmadi</h3><p>Chekda muammo topildi. Operatorimiz siz bilan bog'lanadi.</p></div>`;
+    }
+  }catch(e){}
 }
 
 const BOT_USERNAME = "samabasicbot";
@@ -852,6 +997,11 @@ addEventListener("keydown", e => {
 });
 
 // ---------- Boshlash ----------
+// Sensor ekran: hover yo'q — "Batafsil" tugmasi doim ko'rinsin
+try{
+  if((window.matchMedia && matchMedia("(hover: none)").matches) || ("ontouchstart" in window))
+    document.documentElement.classList.add("touch");
+}catch(e){}
 renderGrid();
 renderCart();
 observeReveals();

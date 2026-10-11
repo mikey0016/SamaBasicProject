@@ -91,7 +91,7 @@ function footerHTML(){
         <h4>Aloqa</h4>
         <a href="https://www.instagram.com/sama_basic" target="_blank" rel="noopener">Instagram @sama_basic</a>
         <a href="https://t.me/para_kiyim_parnie_futbolki" target="_blank" rel="noopener">Telegram kanal ✈</a>
-        <a href="tel:+998900000000">+998 90 000 00 00</a>
+        <a href="tel:+998907708124">+998 90 770 81 24</a>
         <span>Toshkent, O'zbekiston</span>
       </div>
     </div>

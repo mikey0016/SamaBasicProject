@@ -3,17 +3,26 @@
    ========================================================= */
 
 const params  = new URLSearchParams(location.search);
-let product = getProduct(params.get("id")) || PRODUCTS[0];
+let product = getProduct(params.get("id")) || PRODUCTS[0] || null;
+if(product && !product.gallery.length){
+  // Faqat rang rasmlari bor mahsulot — birinchisidan galereya yig'amiz
+  const cg = product.colorGalleries || {};
+  const k = Object.keys(cg)[0];
+  const a = k ? cg[k] : null;
+  product.gallery = (Array.isArray(a) && a.length)
+    ? a.map((s, i) => ({ src: s, label: `Ko'rinish ${i + 1}` }))
+    : [{ src: "assets/logo.jpg", label: "Rasm yo'q" }];
+}
 
 let selectedSize  = null;
-let selectedColor = product.colors[0];
+let selectedColor = product ? product.colors[0] : null;
 let qty           = 1;
 let viewIndex     = 0;
 
 // ---------- Breadcrumb ----------
 function renderBreadcrumb(){
   const bc = $("#breadcrumb");
-  if(!bc) return;
+  if(!bc || !product) return;
   bc.innerHTML = `
     <a href="index.html">Bosh sahifa</a><span>/</span>
     <a href="shop.html">Do'kon</a><span>/</span>
@@ -32,6 +41,10 @@ function stars(rating){
 function renderProduct(){
   const inner = $("#productInner");
   if(!inner) return;
+  if(!product){
+    inner.innerHTML = `<div class="empty"><div class="empty__icon">🛍️</div><h2>Mahsulot topilmadi</h2><p>Hozircha do'konda mahsulot yo'q.</p><a href="shop.html" class="btn btn--primary">Do'konga qaytish</a></div>`;
+    return;
+  }
   viewIndex = 0;
   document.title = `${product.name} — Sama Basic`;
 
@@ -185,7 +198,11 @@ function bindProductEvents(){
 // ---------- O'xshash mahsulotlar ----------
 function renderRelated(){
   const grid = $("#relatedGrid");
-  if(!grid) return;
+  if(!grid || !product){
+    const sec = $("#related");
+    if(sec) sec.style.display = "none";
+    return;
+  }
   const list = PRODUCTS.filter(p => p.cat === product.cat && p.id !== product.id).slice(0, 4);
   if(!list.length){ $("#related").style.display = "none"; return; }
   grid.innerHTML = list.map((p, i) => productCardHTML(p, i)).join("");

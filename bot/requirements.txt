@@ -1,1 +1,3 @@
-# Standart kutubxona yetadi — qo'shimcha paket yo'q
+# SQLite rejimda qo'shimcha paket shart emas.
+# MySQL rejimda (DB_TYPE=mysql) kerak:
+pymysql

@@ -181,10 +181,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .pcard__body{padding:1rem 1.05rem 1.15rem}
 .pcard__cat{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--olive);margin-bottom:.35rem}
 .pcard__name{font-size:.98rem;font-weight:600;line-height:1.3;margin-bottom:.6rem}
-.pcard__price{display:flex;align-items:baseline;gap:.55rem;margin-bottom:.9rem}
+.pcard__price{display:flex;align-items:baseline;gap:.55rem;margin-bottom:.9rem;flex-wrap:wrap}
 .pcard__price b{font-family:var(--ff-d);font-size:1.15rem;letter-spacing:.02em;color:var(--cream);font-weight:400}
 .pcard__price s{font-size:.82rem;color:var(--muted)}
-.pcard__row{display:flex;gap:.5rem;align-items:stretch}
+.pcard__row{display:flex;gap:.5rem;align-items:stretch;flex-wrap:wrap}
 .pcard__add{flex:1;padding:.72rem;background:transparent;border:1px solid var(--line);color:var(--cream);
   font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;transition:.25s}
 .pcard__add:hover{background:var(--olive);border-color:var(--olive);color:var(--ink)}
@@ -198,7 +198,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 /* ===== Lookbook ===== */
 .look__grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem}
 .look figure{position:relative;overflow:hidden;background:var(--surf)}
-.look img{width:100%;height:100%;object-fit:cover;aspect-ratio:3/4;filter:grayscale(.55);transition:.9s}
+.look img{width:100%;height:100%;object-fit:cover;aspect-ratio:451/649;filter:grayscale(.55);transition:.9s}
 .look figure:hover img{filter:grayscale(0);transform:scale(1.05)}
 .look figcaption{position:absolute;left:1.1rem;bottom:1rem;font-size:.72rem;letter-spacing:.2em;
   text-transform:uppercase;color:var(--cream);background:rgba(12,13,7,.6);padding:.35rem .7rem;backdrop-filter:blur(6px)}
@@ -261,6 +261,13 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .pm__main img{width:100%;height:100%;object-fit:cover}
 .pm__badge{position:absolute;top:.8rem;left:.8rem;background:var(--olive);color:var(--ink);
   font-size:.68rem;font-weight:700;letter-spacing:.1em;padding:.3rem .7rem}
+.pm__nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;z-index:3;
+  display:grid;place-items:center;font-size:1.6rem;line-height:1;color:var(--cream);
+  background:rgba(12,13,7,.55);border:1px solid var(--line);backdrop-filter:blur(4px);transition:.25s}
+.pm__nav:hover{background:var(--olive);color:var(--ink);border-color:var(--olive)}
+.pm__nav:active{transform:translateY(-50%) scale(.94)}
+.pm__prev{left:.7rem}
+.pm__next{right:.7rem}
 .pm__thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-top:.6rem}
 .pm__thumb{border:1px solid var(--line);aspect-ratio:1/1;overflow:hidden;opacity:.65;transition:.25s}
 .pm__thumb img{width:100%;height:100%;object-fit:cover}
@@ -356,7 +363,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .mapcoords a{color:var(--olive);font-weight:600}
 .mapfallback{padding:2rem 1rem;text-align:center;color:var(--muted);font-size:.86rem}
 .ofield small{letter-spacing:0;text-transform:none;color:var(--muted);font-weight:400}
-.promo{display:flex;gap:.6rem}
+.promo{display:flex;gap:.6rem;flex-wrap:wrap}
 .promo input{flex:1;padding:.85rem 1rem;background:rgba(12,13,7,.5);border:1px solid rgba(242,240,228,.22);color:var(--cream);font-size:.9rem;font-family:inherit;text-transform:uppercase}
 .promo input:focus{outline:none;border-color:var(--olive)}
 .promo input::placeholder{color:rgba(242,240,228,.45);text-transform:none}
@@ -399,3 +406,91 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .coll__no,.coll__txt h3,.pcard__price b,.pm__info h2,.pm__price b,
 .cart__head h3,.cart__sum b,.ord__title{font-weight:800}
 .poster{letter-spacing:-.015em}
+
+/* ===== Botga o'tish (muvaffaqiyat oynasi) — mobil matnlar ===== */
+.obotgo h3{font-size:1.05rem}
+.obotgo p b{color:var(--olive)}
+.obotgo small{color:var(--muted);font-size:.78rem}
+.obotgo small b{color:var(--olive)}
+
+/* ===== Telefon moslashuvi (responsive tuzatish) ===== */
+img,svg{max-width:100%;height:auto}
+body{-webkit-text-size-adjust:100%}
+@media(max-width:640px){
+  .top__in{height:64px;gap:1rem}
+  .logo img{width:34px;height:34px}
+  .logo span{font-size:.95rem;letter-spacing:.1em}
+  .hero{padding:7rem 0 3rem}
+  .hero .poster{font-size:clamp(2.6rem,15vw,15rem)}
+  .hero__lead{font-size:.95rem}
+  .hero__cta .btn{flex:1 1 100%}
+  .hero__foot{gap:1.2rem;margin-top:2.5rem}
+  .hero__foot b{font-size:1.3rem}
+  .ticker__row span{font-size:.88rem}
+  .coll{min-height:300px}
+  .coll__txt{padding:1.4rem}
+  .pcard__body{padding:.8rem .8rem .9rem}
+  .pcard__name{font-size:.86rem}
+  .pcard__price b{font-size:1rem}
+  .pcard__price s{font-size:.72rem}
+  .pcard__add{font-size:.62rem;padding:.65rem .4rem}
+  .qty button{width:28px;min-height:38px}
+  .pm__info{padding:1.4rem 1rem}
+  .pm__price b{font-size:1.5rem}
+  .modal{padding:.7rem}
+  #orderBody{padding:1.4rem .9rem}
+  .ord__title{font-size:1.25rem}
+  .osum{padding:.85rem .9rem}
+  .osum__row{font-size:.78rem;gap:.6rem}
+  .osum__row b{white-space:normal;text-align:right;overflow-wrap:anywhere}
+  .osum__total b{font-size:.95rem}
+  .osum__prep{padding:.6rem .7rem}
+  .osum__prep b{font-size:1.05rem}
+  .osuccess{padding:1.4rem .9rem}
+  .obotgo{padding:1rem .8rem}
+  .ofield input,.ofield select,.promo input{font-size:16px}
+  .btn{padding:.9rem 1.3rem;letter-spacing:.08em}
+  .toast{font-size:.76rem;bottom:16px}
+  .foot__bottom{font-size:.68rem}
+}
+@media(max-width:380px){
+  .grid{gap:.6rem}
+  .pcard__row>*{flex:1 1 100%}
+  .qty{justify-content:center}
+  .promo .btn{flex:1 1 100%}
+  .mapbar .btn{flex:1 1 100%}
+  .policy__act .btn{flex:1 1 100%}
+}
+
+/* Uzun raqamlar (karta) tor ekranda toshmasin */
+.prepay__note{overflow-wrap:anywhere}
+.prepay__note b{overflow-wrap:anywhere;word-break:break-all}
+.paycard{display:inline-block;margin-top:.4rem;padding:.6rem .9rem;border:1px dashed var(--olive);color:var(--olive);font-size:1rem;font-weight:700;letter-spacing:.06em;overflow-wrap:anywhere;word-break:break-all}
+@media(max-width:640px){
+  #orderSubmit{white-space:normal;line-height:1.5;font-size:.74rem;padding:.9rem .7rem}
+  .paycard{font-size:.92rem}
+  .modal__box{overflow-x:hidden}
+  .mapwrap{overflow:hidden}
+  .omap{width:100%}
+  .mapcoords{font-size:.74rem}
+}
+
+/* ===== Touch + anchor tuzatish ===== */
+html{scroll-padding-top:90px}
+section[id],footer[id]{scroll-margin-top:78px}
+.qty button{min-height:44px}
+/* Sensor ekranda hover bo'lmaydi — kartada alohida "Batafsil" tugmasi */
+.pcard__more{display:none;width:100%;margin:0 0 .8rem;padding:.75rem;min-height:44px;border:1px solid var(--olive);color:var(--olive);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;background:transparent}
+.pcard__more:active{background:var(--olive);color:var(--ink)}
+@media(hover:none){
+  .pcard__more{display:block}
+  .pcard:hover .pcard__media img{transform:none;filter:grayscale(0)}
+}
+/* JS touch-aniqlash (sug'urta): <html class="touch"> */
+.touch .pcard__more{display:block}
+.touch .pcard:hover .pcard__media img{transform:none;filter:grayscale(0)}
+@media(max-width:640px){
+  .qty button{min-width:40px}
+  .tab{padding:.85rem 1.3rem}
+  .pcard__add{min-height:44px;display:flex;align-items:center;justify-content:center}
+}

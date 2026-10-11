@@ -27,6 +27,12 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN", "8975220527:AAHXUl4SixHdXAELqOdVWtU8WwZz
 ADMIN_IDS = [int(x) for x in os.environ.get("ADMIN_IDS", "7692914031,7148674443").split(",") if x.strip()]
 HTTP_PORT = int(os.environ.get("PORT", "8003"))
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "orders.db")
+DB_TYPE = os.environ.get("DB_TYPE", "sqlite").strip().lower()
+MYSQL_HOST = os.environ.get("MYSQL_HOST", "localhost")
+MYSQL_PORT = int(os.environ.get("MYSQL_PORT", "3306"))
+MYSQL_USER = os.environ.get("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.environ.get("MYSQL_PASSWORD", "")
+MYSQL_DB = os.environ.get("MYSQL_DB", "samabasic")
 
 STATUS = {
     "new": "🆕 Yangi",
@@ -73,14 +79,118 @@ def esc(s):
 
 
 # ---------- Baza ----------
+def _mysql_conn():
+    import pymysql
+    return pymysql.connect(host=MYSQL_HOST, port=MYSQL_PORT, user=MYSQL_USER,
+                           password=MYSQL_PASSWORD, database=MYSQL_DB,
+                           charset="utf8mb4", autocommit=False)
+
+
+class DBCursor:
+    """sqlite3 va pymysql kursorlari uchun yagona o'ram — har doim dict qaytaradi."""
+
+    def __init__(self, cur, mysql):
+        self._cur = cur
+        self._mysql = mysql
+        self._cols = []
+
+    def execute(self, q, p=()):
+        if self._mysql:
+            q = q.replace("?", "%s")
+        self._cur.execute(q, p or ())
+        try:
+            desc = self._cur.description
+        except Exception:
+            desc = None
+        self._cols = [d[0] for d in desc] if desc else []
+        return self
+
+    def _row(self, r):
+        if r is None:
+            return None
+        if isinstance(r, dict):
+            return dict(r)
+        if self._cols:
+            return dict(zip(self._cols, r))
+        return dict(r)
+
+    def fetchone(self):
+        return self._row(self._cur.fetchone())
+
+    def fetchall(self):
+        return [self._row(r) for r in self._cur.fetchall()]
+
+    @property
+    def rowcount(self):
+        return self._cur.rowcount
+
+    @property
+    def lastrowid(self):
+        return self._cur.lastrowid
+
+
+class DBConn:
+    def __init__(self, con, mysql):
+        self._con = con
+        self._mysql = mysql
+
+    def execute(self, q, p=()):
+        if self._mysql:
+            return DBCursor(self._con.cursor(), True).execute(q, p)
+        return DBCursor(self._con.cursor(), False).execute(q, p)
+
+    def commit(self):
+        self._con.commit()
+
+    def close(self):
+        try:
+            self._con.close()
+        except Exception:
+            pass
+
+
 def db():
-    con = sqlite3.connect(DB_PATH)
-    con.row_factory = sqlite3.Row
-    return con
+    if DB_TYPE == "mysql":
+        return DBConn(_mysql_conn(), True)
+    return DBConn(sqlite3.connect(DB_PATH), False)
+
+
+def _init_mysql(con):
+    con.execute("""CREATE TABLE IF NOT EXISTS orders(
+        id INT AUTO_INCREMENT PRIMARY KEY, no TEXT, source TEXT, name TEXT, phone TEXT, email TEXT,
+        address TEXT, ship TEXT, pay TEXT, note TEXT,
+        items TEXT, subtotal INT DEFAULT 0, ship_cost INT DEFAULT 0, total INT DEFAULT 0,
+        lat DOUBLE DEFAULT NULL, lon DOUBLE DEFAULT NULL, status VARCHAR(32) DEFAULT 'new',
+        msgs TEXT, created_at TEXT,
+        promo TEXT DEFAULT '', discount INT DEFAULT 0, discount_pct INT DEFAULT 0,
+        prepay INT DEFAULT 0, tg_user BIGINT DEFAULT 0, check_file TEXT DEFAULT '')""")
+    con.execute("""CREATE TABLE IF NOT EXISTS promos(
+        code VARCHAR(32) PRIMARY KEY, pct INT, max_uses INT DEFAULT 0,
+        used INT DEFAULT 0, active INT DEFAULT 1, created_at TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS kv(k VARCHAR(64) PRIMARY KEY, v TEXT)""")
+    con.execute("""CREATE TABLE IF NOT EXISTS products(
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name TEXT, cat TEXT DEFAULT 'kiyimlar', price INT DEFAULT 0, old INT DEFAULT 0,
+        material TEXT DEFAULT '', sizes TEXT DEFAULT '', colors TEXT DEFAULT '',
+        stock INT DEFAULT 10, descr TEXT DEFAULT '', care TEXT DEFAULT '', tag TEXT DEFAULT '',
+        img TEXT DEFAULT '', color_imgs TEXT DEFAULT '', active INT DEFAULT 1, created_at TEXT)""")
+    for tbl, col in (("orders", "promo TEXT"), ("orders", "discount INT DEFAULT 0"),
+                     ("orders", "discount_pct INT DEFAULT 0"), ("orders", "prepay INT DEFAULT 0"),
+                     ("orders", "tg_user BIGINT DEFAULT 0"), ("orders", "check_file TEXT DEFAULT ''"),
+                     ("products", "color_imgs TEXT DEFAULT ''")):
+        try:
+            con.execute(f"ALTER TABLE {tbl} ADD COLUMN {col}")
+        except Exception as e:
+            print("migrate:", e, flush=True)
 
 
 def init_db():
     con = db()
+    if DB_TYPE == "mysql":
+        _init_mysql(con)
+        con.commit()
+        con.close()
+        return
     con.execute("""CREATE TABLE IF NOT EXISTS orders(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         no TEXT, source TEXT, name TEXT, phone TEXT, email TEXT,
@@ -97,12 +207,17 @@ def init_db():
         name TEXT, cat TEXT DEFAULT 'kiyimlar', price INTEGER DEFAULT 0, old INTEGER DEFAULT 0,
         material TEXT DEFAULT '', sizes TEXT DEFAULT '', colors TEXT DEFAULT '',
         stock INTEGER DEFAULT 10, descr TEXT DEFAULT '', care TEXT DEFAULT '', tag TEXT DEFAULT '',
-        img TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TEXT)""")
+        img TEXT DEFAULT '', color_imgs TEXT DEFAULT '', active INTEGER DEFAULT 1, created_at TEXT)""")
     for col in ("promo TEXT DEFAULT ''", "discount INTEGER DEFAULT 0",
                 "discount_pct INTEGER DEFAULT 0", "prepay INTEGER DEFAULT 0",
                 "tg_user INTEGER DEFAULT 0", "check_file TEXT DEFAULT ''"):
         try:
             con.execute(f"ALTER TABLE orders ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass
+    for col in ("color_imgs TEXT DEFAULT ''",):
+        try:
+            con.execute(f"ALTER TABLE products ADD COLUMN {col}")
         except sqlite3.OperationalError:
             pass
     con.commit()
@@ -158,16 +273,51 @@ def list_orders(limit=10):
     return [dict(r) for r in rows]
 
 
+# ---------- Buyurtmalar ro'yxati: filtrlar + sahifalash ----------
+PAGE_SIZE = 5
+
+ORDER_FILTERS = {
+    "pending": ("Kutulmoqda", ["new", "awaiting_payment", "awaiting_confirm"]),
+    "accepted": ("Qabul qilingan", ["accepted", "preparing", "delivering", "delivered", "closed"]),
+    "rejected": ("Rad etilgan", ["cancelled", "rejected"]),
+    "all": ("Barchasi", None),
+}
+
+
+def count_orders(statuses=None):
+    con = db()
+    if statuses:
+        q = "SELECT COUNT(*) AS c FROM orders WHERE status IN (%s)" % ",".join("?" * len(statuses))
+        n = con.execute(q, tuple(statuses)).fetchone()["c"]
+    else:
+        n = con.execute("SELECT COUNT(*) AS c FROM orders").fetchone()["c"]
+    con.close()
+    return n
+
+
+def list_orders_filtered(statuses=None, limit=5, offset=0):
+    con = db()
+    if statuses:
+        q = ("SELECT * FROM orders WHERE status IN (%s) ORDER BY id DESC LIMIT ? OFFSET ?"
+             % ",".join("?" * len(statuses)))
+        rows = con.execute(q, (*statuses, limit, offset)).fetchall()
+    else:
+        rows = con.execute("SELECT * FROM orders ORDER BY id DESC LIMIT ? OFFSET ?",
+                           (limit, offset)).fetchall()
+    con.close()
+    return [dict(r) for r in rows]
+
+
 def stats():
     con = db()
     today = datetime.now().strftime("%Y-%m-%d")
-    tot = con.execute("SELECT COUNT(*), COALESCE(SUM(total),0) FROM orders").fetchone()
-    tdy = con.execute("SELECT COUNT(*), COALESCE(SUM(total),0) FROM orders WHERE created_at LIKE ?",
+    tot = con.execute("SELECT COUNT(*) AS c, COALESCE(SUM(total),0) AS s FROM orders").fetchone()
+    tdy = con.execute("SELECT COUNT(*) AS c, COALESCE(SUM(total),0) AS s FROM orders WHERE created_at LIKE ?",
                       (today + "%",)).fetchone()
-    by = con.execute("SELECT status, COUNT(*) FROM orders GROUP BY status").fetchall()
+    by = con.execute("SELECT status, COUNT(*) AS n FROM orders GROUP BY status").fetchall()
     con.close()
-    return {"count": tot[0], "sum": tot[1], "today_count": tdy[0], "today_sum": tdy[1],
-            "by": {r[0]: r[1] for r in by}}
+    return {"count": tot["c"], "sum": tot["s"], "today_count": tdy["c"], "today_sum": tdy["s"],
+            "by": {r["status"]: r["n"] for r in by}}
 
 
 # ---------- Promokodlar (faqat % li) ----------
@@ -179,9 +329,15 @@ def add_promo(code, pct, max_uses=0):
         return {"ok": False, "error": "foiz 1-90 oralig'ida bo'lsin"}
     con = db()
     try:
-        con.execute("INSERT OR REPLACE INTO promos(code,pct,max_uses,used,active,created_at)"
-                    "VALUES(?,?,?,?,1,?)",
-                    (code, pct, max_uses, 0, datetime.now().strftime("%Y-%m-%d %H:%M")))
+        if DB_TYPE == "mysql":
+            con.execute("INSERT INTO promos(code,pct,max_uses,used,active,created_at)"
+                        "VALUES(?,?,?,?,1,?) ON DUPLICATE KEY UPDATE pct=VALUES(pct),"
+                        "max_uses=VALUES(max_uses),used=0,active=1,created_at=VALUES(created_at)",
+                        (code, pct, max_uses, 0, datetime.now().strftime("%Y-%m-%d %H:%M")))
+        else:
+            con.execute("INSERT OR REPLACE INTO promos(code,pct,max_uses,used,active,created_at)"
+                        "VALUES(?,?,?,?,1,?)",
+                        (code, pct, max_uses, 0, datetime.now().strftime("%Y-%m-%d %H:%M")))
         con.commit()
     finally:
         con.close()
@@ -248,15 +404,30 @@ def _parse_imgs(raw):
     return [raw] if raw else []
 
 
+def _color_img_field(d):
+    """Har rang uchun alohida rasmlar: {rang: [ref, ...]} JSON."""
+    ci = d.get("color_images") or {}
+    clean = {c: [x for x in v if x] for c, v in ci.items() if v}
+    return json.dumps(clean, ensure_ascii=False)
+
+
+def _parse_color_imgs(raw):
+    try:
+        d = json.loads(raw or "{}")
+        return {c: [x for x in v if x] for c, v in d.items() if v} if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
 def product_add(d):
     con = db()
     cur = con.execute(
-        """INSERT INTO products(name,cat,price,old,material,sizes,colors,stock,descr,care,tag,img,active,created_at)
-           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
+        """INSERT INTO products(name,cat,price,old,material,sizes,colors,stock,descr,care,tag,img,color_imgs,active,created_at)
+           VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1,?)""",
         (d.get("name", ""), d.get("cat", "kiyimlar"), int(d.get("price", 0) or 0),
          int(d.get("old", 0) or 0), d.get("material", ""), d.get("sizes", ""),
          d.get("colors", ""), int(d.get("stock", 10) or 10), d.get("descr", ""),
-         d.get("care", ""), d.get("tag", ""), _img_field(d),
+         d.get("care", ""), d.get("tag", ""), _img_field(d), _color_img_field(d),
          datetime.now().strftime("%Y-%m-%d %H:%M")))
     pid = cur.lastrowid
     con.commit()
@@ -292,7 +463,23 @@ def public_product(r):
     """Bazadagi mahsulotni sayt kutgan ko'rinishga o'girish."""
     srcs = []
     for i, e in enumerate(_parse_imgs(r.get("img"))):
-        srcs.append(e[4:] if e.startswith("url:") else f"/api/img/{r['id']}/{i}")
+        if e.startswith("url:"):
+            if e[4:].startswith("http"):
+                srcs.append(e[4:])
+            continue
+        srcs.append(f"/api/img/{r['id']}/{i}")
+    cmap = _parse_color_imgs(r.get("color_imgs"))
+    cg = {}
+    for n, c in enumerate(sorted(cmap.keys())):
+        arr = []
+        for m, e in enumerate(cmap[c]):
+            if e.startswith("url:"):
+                if e[4:].startswith("http"):
+                    arr.append(e[4:])
+                continue
+            arr.append(f"/api/cimg/{r['id']}/{n}/{m}")
+        if arr:
+            cg[c] = arr
     return {
         "id": 1000 + int(r["id"]), "name": r.get("name", ""), "cat": r.get("cat", "kiyimlar"),
         "price": int(r.get("price") or 0), "old": int(r.get("old") or 0) or None,
@@ -301,7 +488,7 @@ def public_product(r):
         "colors": [x.strip() for x in (r.get("colors") or "").split(",") if x.strip()],
         "stock": int(r.get("stock") or 10), "desc": r.get("descr") or "",
         "care": r.get("care") or "Ko'rsatma yo'q", "rating": 5, "reviews": 0,
-        "img": srcs[0] if srcs else "", "images": srcs,
+        "img": srcs[0] if srcs else "", "images": srcs, "colorGalleries": cg,
     }
 
 
@@ -315,43 +502,58 @@ def kv_get(k, default=""):
 
 def kv_set(k, v):
     con = db()
-    con.execute("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)", (k, v))
+    if DB_TYPE == "mysql":
+        con.execute("INSERT INTO kv(k,v) VALUES(?,?) ON DUPLICATE KEY UPDATE v=VALUES(v)", (k, v))
+    else:
+        con.execute("INSERT OR REPLACE INTO kv(k,v) VALUES(?,?)", (k, v))
     con.commit()
     con.close()
 
 
 # ---------- Xabar matni + tugmalar ----------
+DIV = "━━━━━━━━━━━━"
+
+
 def order_text(o):
     items = json.loads(o["items"]) if isinstance(o["items"], str) else (o["items"] or [])
-    lines = [f"{i + 1}. {esc(it.get('name'))} — {it.get('qty')} × {fmt(it.get('price'))} = "
-             f"{fmt((it.get('price') or 0) * (it.get('qty') or 0))}" for i, it in enumerate(items)]
+    raw_lines = [f"{i + 1}. {it.get('name')} × {it.get('qty')} = "
+                 f"{fmt((it.get('price') or 0) * (it.get('qty') or 0))}" for i, it in enumerate(items)]
+    items_block = esc("\n".join(raw_lines)) if raw_lines else "—"
     loc_line = ""
     if o.get("lat") is not None and o.get("lon") is not None:
-        loc_line = (f"🗺 Lokatsiya: <a href=\"https://maps.google.com/?q={o['lat']},{o['lon']}\">"
-                    f"{o['lat']}, {o['lon']}</a>\n")
+        loc_line = (f"🗺 <b>Xarita:</b> <a href=\"https://maps.google.com/?q={o['lat']},{o['lon']}\">"
+                    f"ochish</a>\n")
+    mail_line = f"✉️ <b>Email:</b> {esc(o.get('email'))}\n" if o.get("email") else ""
     promo_line = ""
     if o.get("promo"):
-        promo_line = f"🎟 Promo: <b>{esc(o['promo'])}</b> (-{o.get('discount_pct') or '?'}%)\n"
+        promo_line = f"🎟 <b>Promo:</b> <code>{esc(o['promo'])}</code> (−{o.get('discount_pct') or '?'}%)\n"
+    disc_line = f"🎟 <b>Chegirma:</b> −{fmt(o.get('discount'))}\n" if o.get("discount") else ""
     prepay_line = ""
     if o.get("prepay"):
-        prepay_line = (f"💳 Oldindan 50%: <b>{fmt(o['prepay'])}</b>\n"
-                       f"💵 Qolgan (yetkazishda): <b>{fmt((o.get('total') or 0) - o['prepay'])}</b>\n")
+        prepay_line = (f"\n💳 <b>Oldindan 50%:</b> <b>{fmt(o['prepay'])}</b>\n"
+                       f"💵 <b>Qolgan:</b> {fmt((o.get('total') or 0) - o['prepay'])}\n")
     return (
-        f"🛍 <b>Buyurtma {esc(o.get('no'))}</b>  #{o['id']}\n"
+        f"🛍 <b>Buyurtma {esc(o.get('no'))}</b> · <code>#{o['id']}</code>\n"
         f"{STATUS.get(o.get('status', 'new'), '')}\n"
-        f"📦 Manba: {esc(o.get('source'))}\n\n"
-        f"👤 Mijoz: {esc(o.get('name'))}\n"
-        f"📞 Telefon: {esc(o.get('phone'))}\n"
-        f"{('✉️ Email: ' + esc(o.get('email')) + chr(10)) if o.get('email') else ''}"
-        f"📍 Manzil: {esc(o.get('address'))}\n"
+        f"<i>📦 Manba: {esc(o.get('source'))}</i>\n"
+        f"{DIV}\n"
+        f"<b>👤 Mijoz</b>\n\n"
+        f"<b>Ism:</b> {esc(o.get('name'))}\n"
+        f"<b>Tel:</b> <code>{esc(o.get('phone'))}</code>\n"
+        f"{mail_line}"
+        f"<b>Manzil:</b> {esc(o.get('address'))}\n"
         f"{loc_line}"
-        f"🚚 Yetkazib berish: {esc(o.get('ship'))}\n"
-        f"💳 To'lov: {esc(o.get('pay'))}\n"
-        f"📝 Izoh: {esc(o.get('note') or '—')}\n\n"
-        f"🧾 Tarkib:\n" + "\n".join(lines) + "\n\n"
-        f"🧮 Mahsulotlar: {fmt(o.get('subtotal'))}\n"
-        f"{('🎟 Chegirma: -' + fmt(o.get('discount')) + chr(10)) if o.get('discount') else ''}"
-        f"🚚 Yetkazish: {fmt(o.get('ship_cost')) if o.get('ship_cost') else 'Bepul'}\n"
+        f"<b>Yetkazish:</b> {esc(o.get('ship'))}\n"
+        f"<b>To'lov:</b> {esc(o.get('pay'))}\n"
+        f"<b>Izoh:</b> <i>{esc(o.get('note') or '—')}</i>\n"
+        f"{DIV}\n"
+        f"<b>🧾 Tarkib</b>\n\n"
+        f"<pre>{items_block}</pre>\n"
+        f"{DIV}\n"
+        f"<b>💰 Hisob</b>\n\n"
+        f"Mahsulotlar: {fmt(o.get('subtotal'))}\n"
+        f"{disc_line}"
+        f"Yetkazish: {fmt(o.get('ship_cost')) if o.get('ship_cost') else 'Bepul'}\n"
         f"💰 <b>Jami: {fmt(o.get('total'))}</b>\n"
         f"{promo_line}{prepay_line}")
 
@@ -451,20 +653,25 @@ def payment_instructions(o):
     pretty = " ".join(digits[i:i + 4] for i in range(0, len(digits), 4)) if digits else ""
     sep = "━━━━━━━━━━━━━━━━━━━━"
     if card:
-        card_block = ("💳 <b>KARTA RAQAMI</b>  <i>(bosing — nusxa olinadi)</i>\n"
+        card_block = ("💳 <b><u>KARTA RAQAMI</u></b>  <i>(bosing — nusxa olinadi)</i>\n"
                       f"<pre>{esc(pretty or card)}</pre>")
     else:
         card_block = "💳 Karta raqamini operatorimiz shu chatga yuboradi."
     return (
         f"🧾 <b>Buyurtma {esc(o.get('no'))}</b>\n"
         f"{sep}\n"
-        "❗️ <b>DIQQAT!</b> Buyurtmani tasdiqlash uchun <b>50% oldindan to'lov</b> qiling.\n\n"
-        f"💰 Jami: {fmt(o.get('total'))}\n"
-        f"💵 <b>TO'LANADI: {fmt(o.get('prepay'))}</b>\n"
+        f"💰 Jami summa: {fmt(o.get('total'))}\n"
+        f"💵 Oldindan to'lov — 50%:\n"
+        f"<pre>{fmt(o.get('prepay'))}</pre>\n"
+        f"{sep}\n"
+        "⛔️ <b><u>MUHIM: Aynan yuqoridagi summani to'lang!</u></b>\n"
+        "❌ <b>Ko'p ham, kam ham yubormang</b> — tiyinma-tiyin to'g'ri kelishi shart.\n"
+        "<i>Noto'g'ri summa tushsa, chek tasdiqlanmaydi va buyurtmangiz kechikadi.</i>\n"
         f"{sep}\n"
         f"{card_block}\n"
         f"{sep}\n"
-        "📸 To'lov chekini shu chatga <b>rasm</b> qilib yuboring.\n"
+        "📸 <b>1-qadam:</b> To'lovni qiling.\n"
+        "📸 <b>2-qadam:</b> Chekni shu chatga <b>rasm</b> qilib yuboring.\n"
         "✅ Chek tasdiqlangach, buyurtma adminga o'tadi.")
 
 
@@ -480,7 +687,7 @@ def notify_user(oid, text, kb=None):
 
 def user_status_text(o):
     return (f"📦 <b>Buyurtma {esc(o.get('no'))}</b>\n"
-            f"{STATUS.get(o.get('status'), '')}\n"
+            f"{STATUS.get(o.get('status'), '')}\n\n"
             f"💰 Jami: <b>{fmt(o.get('total'))}</b>")
 
 
@@ -509,16 +716,20 @@ def notify_check(oid, from_chat, msg_id):
 ADD_FLOW = {}  # chat_id -> {"step": int, "data": dict}
 
 PRODUCT_STEPS = [
-    ("name", "1/9 — Mahsulot nomini yozing:"),
-    ("cat", "2/9 — Kategoriyani tanlang:"),
-    ("price", "3/9 — Narxini yozing (so'm). Faqat raqam, masalan: 189000"),
-    ("old", "4/9 — Eski narxi (chegirma uchun) yoki «-» o'tkazib yuborish:"),
-    ("sizes", "5/9 — O'lchamlar, vergul bilan (S,M,L,XL) yoki «-»:"),
-    ("colors", "6/9 — Ranglar, vergul bilan (Oq,Qora) yoki «-»:"),
-    ("material", "7/9 — Material yoki «-»:"),
-    ("desc", "8/9 — Qisqa tavsif yoki «-»:"),
-    ("photos", "9/9 — Mahsulot rasmlarini yuboring (1 tadan 4 tagacha). Bo'lgach «tayyor» deb yozing, o'tkazib yuborish uchun «-»:"),
+    ("name", "1/10 — Mahsulot nomini yozing (masalan: Oversize Futbolka):"),
+    ("cat", "2/10 — Kategoriyani tanlang:"),
+    ("price", "3/10 — Narxni tanlang (so'm):"),
+    ("old", "4/10 — Eski narx (chegirma uchun):"),
+    ("stock", "5/10 — Qoldiq sonini tanlang (dona):"),
+    ("sizes", "6/10 — O'lchamlarni tanlang:"),
+    ("colors", "7/10 — Ranglarni tanlang (bir nechta bo'ladi):"),
+    ("material", "8/10 — Materialni tanlang:"),
+    ("desc", "9/10 — Qisqa tavsif yozing:"),
+    ("cphotos", "10/10 — Har bir rang uchun alohida rasm yuboring:"),
 ]
+
+FIELD_LABELS = {"price": "Narx", "old": "Eski narx", "stock": "Qoldiq",
+                "sizes": "O'lchamlar", "colors": "Ranglar", "material": "Material"}
 
 
 def padd_start(chat, sender):
@@ -526,19 +737,89 @@ def padd_start(chat, sender):
     padd_prompt(chat, sender)
 
 
+def _cancel_row():
+    return [{"text": "❌ Bekor qilish", "callback_data": "padd:cancel"}]
+
+
+def _step_keyboard(st, key):
+    """Qadam uchun inline tugmalar (None — faqat matn)."""
+    if key == "cat":
+        return {"inline_keyboard": [
+            [{"text": "👕 Kiyimlar", "callback_data": "padd:cat:kiyimlar"}],
+            [{"text": "👜 Aksessuarlar", "callback_data": "padd:cat:aksessuarlar"}],
+            _cancel_row(),
+        ]}
+    if key == "price":
+        return {"inline_keyboard": [
+            [{"text": "100 000", "callback_data": "padd:set:price:100000"},
+             {"text": "150 000", "callback_data": "padd:set:price:150000"},
+             {"text": "200 000", "callback_data": "padd:set:price:200000"}],
+            [{"text": "300 000", "callback_data": "padd:set:price:300000"},
+             {"text": "500 000", "callback_data": "padd:set:price:500000"},
+             {"text": "700 000", "callback_data": "padd:set:price:700000"}],
+            [{"text": "✍️ Boshqa summa yozish", "callback_data": "padd:custom:price"}],
+            _cancel_row(),
+        ]}
+    if key == "old":
+        return {"inline_keyboard": [
+            [{"text": "➖ Chegirmasiz", "callback_data": "padd:set:old:-"}],
+            [{"text": "✍️ Eski narx yozish", "callback_data": "padd:custom:old"}],
+            _cancel_row(),
+        ]}
+    if key == "stock":
+        return {"inline_keyboard": [
+            [{"text": "5", "callback_data": "padd:set:stock:5"},
+             {"text": "10", "callback_data": "padd:set:stock:10"},
+             {"text": "20", "callback_data": "padd:set:stock:20"},
+             {"text": "50", "callback_data": "padd:set:stock:50"}],
+            [{"text": "✍️ Boshqa son yozish", "callback_data": "padd:custom:stock"}],
+            _cancel_row(),
+        ]}
+    if key == "sizes":
+        return {"inline_keyboard": [
+            [{"text": "S,M,L,XL", "callback_data": "padd:set:sizes:S,M,L,XL"}],
+            [{"text": "S,M,L,XL,XXL", "callback_data": "padd:set:sizes:S,M,L,XL,XXL"}],
+            [{"text": "28–36", "callback_data": "padd:set:sizes:28,30,32,34,36"}],
+            [{"text": "One Size", "callback_data": "padd:set:sizes:One Size"}],
+            [{"text": "✍️ Boshqacha yozish", "callback_data": "padd:custom:sizes"}],
+            _cancel_row(),
+        ]}
+    if key == "colors":
+        sel = st["data"].get("color_sel", [])
+        palette = ["Oq", "Qora", "Olive", "Bej", "Ko'k", "Jigarrang", "Kulrang", "Krem"]
+        rows = []
+        for i in range(0, len(palette), 4):
+            rows.append([{"text": ("✅ " if c in sel else "") + c,
+                          "callback_data": f"padd:color:{c}"} for c in palette[i:i + 4]])
+        rows.append([{"text": "✅ Tayyor", "callback_data": "padd:color:done"}])
+        rows.append([{"text": "✍️ Ro'yxatni yozish", "callback_data": "padd:custom:colors"}])
+        rows.append(_cancel_row())
+        return {"inline_keyboard": rows}
+    if key == "material":
+        return {"inline_keyboard": [
+            [{"text": "Paxta", "callback_data": "padd:set:material:Paxta"},
+             {"text": "Tabiiy teri", "callback_data": "padd:set:material:Tabiiy teri"}],
+            [{"text": "Jun", "callback_data": "padd:set:material:Jun"},
+             {"text": "Zig'ir", "callback_data": "padd:set:material:Zig'ir"}],
+            [{"text": "➖ Yo'q", "callback_data": "padd:set:material:-"}],
+            [{"text": "✍️ Boshqacha yozish", "callback_data": "padd:custom:material"}],
+            _cancel_row(),
+        ]}
+    if key == "desc":
+        return {"inline_keyboard": [
+            [{"text": "⏭ O'tkazib yuborish", "callback_data": "padd:set:desc:-"}],
+            _cancel_row(),
+        ]}
+    return None
+
+
 def padd_prompt(chat, sender):
     st = ADD_FLOW.get(chat)
     if not st:
         return
     key, prompt = PRODUCT_STEPS[st["step"]]
-    if key == "cat":
-        sender["send"](chat, prompt, {"inline_keyboard": [
-            [{"text": "👕 Kiyimlar", "callback_data": "padd:cat:kiyimlar"}],
-            [{"text": "👜 Aksessuarlar", "callback_data": "padd:cat:aksessuarlar"}],
-            [{"text": "❌ Bekor qilish", "callback_data": "padd:cancel"}],
-        ]})
-    else:
-        sender["send"](chat, prompt + "\n\n<i>/cancel — bekor qilish</i>")
+    kb = _step_keyboard(st, key)
+    sender["send"](chat, prompt + "\n\n<i>/cancel — bekor qilish</i>", kb)
 
 
 def padd_store(chat, key, raw):
@@ -553,6 +834,11 @@ def padd_store(chat, key, raw):
         if not num or int(num) <= 0:
             return "⛔ Narx faqat raqam bo'lsin."
         d["price"] = int(num)
+    elif key == "stock":
+        num = re.sub(r"\D", "", raw)
+        if not num:
+            return "⛔ Son noto'g'ri. Faqat raqam yuboring."
+        d["stock"] = int(num)
     elif key == "old":
         if raw in ("-", "", "yo'q"):
             d["old"] = 0
@@ -574,9 +860,12 @@ def padd_advance(chat, sender):
     st = ADD_FLOW.get(chat)
     if not st:
         return
+    st.pop("await_custom", None)
     st["step"] += 1
     if st["step"] >= len(PRODUCT_STEPS):
         padd_confirm(chat, sender)
+    elif PRODUCT_STEPS[st["step"]][0] == "cphotos":
+        padd_after_photos(chat, sender)
     else:
         padd_prompt(chat, sender)
 
@@ -593,24 +882,120 @@ def padd_input(chat, raw, sender):
     padd_advance(chat, sender)
 
 
+def padd_after_photos(chat, sender):
+    """Umumiy rasmlardan keyin har bir rang uchun alohida rasm yig'ish."""
+    st = ADD_FLOW.get(chat)
+    if not st:
+        return
+    colors = [c.strip() for c in (st["data"].get("colors") or "").split(",") if c.strip()]
+    st["data"]["color_list"] = colors
+    st["data"].setdefault("color_images", {})
+    if colors:
+        st["color_phase"] = True
+        st["color_idx"] = 0
+        padd_color_prompt(chat, sender)
+    else:
+        st["step"] = len(PRODUCT_STEPS)
+        padd_confirm(chat, sender)
+
+
+def padd_color_prompt(chat, sender):
+    st = ADD_FLOW.get(chat)
+    if not st:
+        return
+    colors = st["data"]["color_list"]
+    i = st.get("color_idx", 0)
+    col = colors[i]
+    have = len(st["data"]["color_images"].get(col, []))
+    extra = f" — hozir {have} ta" if have else ""
+    sender["send"](chat,
+        f"🎨 <b>{esc(col)}</b> rangi uchun rasmlar ({i + 1}/{len(colors)}){extra}\n\n"
+        "Rasmlarni <b>foto</b> qilib yuboring (1 tadan 4 tagacha). "
+        "Bo'lgach «tayyor» deb yozing.\n"
+        "Bu rangga rasm shart emas: «-»\n\n"
+        "<i>/cancel — bekor qilish</i>")
+
+
+def padd_color_next(chat, sender):
+    st = ADD_FLOW.get(chat)
+    if not st:
+        return True
+    st["color_idx"] = st.get("color_idx", 0) + 1
+    if st["color_idx"] >= len(st["data"]["color_list"]):
+        total = sum(len(v) for v in st["data"].get("color_images", {}).values())
+        if not total:
+            st["color_idx"] = 0
+            sender["send"](chat, "❗️ Kamida bitta rangga rasm yuklash shart. Qaytadan boshlaymiz:")
+            padd_color_prompt(chat, sender)
+            return True
+        st.pop("color_phase", None)
+        st.pop("color_idx", None)
+        st["step"] = len(PRODUCT_STEPS)
+        padd_confirm(chat, sender)
+    else:
+        padd_color_prompt(chat, sender)
+    return True
+
+
+def padd_handle_color(chat, msg, text, sender, fid):
+    """Rang-bosqich xabarlari. True — yutilgan."""
+    st = ADD_FLOW.get(chat)
+    if not st:
+        return False
+    colors = st["data"]["color_list"]
+    col = colors[st.get("color_idx", 0)]
+    imgs = st["data"]["color_images"].setdefault(col, [])
+    if text.lower() in ("tayyor", "ok", "tamom", "done", "bo'ldi"):
+        if not imgs:
+            sender["send"](chat, "❗️ Kamida 1 ta rasm yuboring yoki «-» deb o'tkazib yuboring.")
+            return True
+        return padd_color_next(chat, sender)
+    if text == "-":
+        st["data"]["color_images"].pop(col, None)
+        return padd_color_next(chat, sender)
+    if fid:
+        if len(imgs) >= 4:
+            sender["send"](chat, "❗️ Bu rang uchun maksimal 4 ta. «tayyor» deb yozing.")
+            return True
+        imgs.append("tg:" + fid)
+    elif text:
+        added = False
+        for u in text.split():
+            if len(imgs) < 4 and u.startswith("http"):
+                imgs.append("url:" + u)
+                added = True
+        if not added and not imgs:
+            sender["send"](chat, "📸 Rasmni foto qilib yuboring, URL yozing, «tayyor» yoki «-» deb yozing.")
+            return True
+    else:
+        sender["send"](chat, "📸 Rasmni foto qilib yuboring yoki «tayyor» deb yozing.")
+        return True
+    if len(imgs) >= 4:
+        sender["send"](chat, f"✅ {esc(col)}: 4/4 rasm qabul qilindi.")
+        return padd_color_next(chat, sender)
+    sender["send"](chat, f"✅ {esc(col)}: {len(imgs)}/4 rasm. Yana yuboring yoki «tayyor» deb yozing.")
+    return True
+
+
 def padd_confirm(chat, sender):
     st = ADD_FLOW.get(chat)
     if not st:
         return
     d = st["data"]
-    nimg = len(d.get("images") or ([] if not d.get("img") else [d["img"]]))
-    has_img = f"✅ {nimg} ta" if nimg else "— yo'q"
     sender["send"](chat,
-        "🧾 <b>Yangi mahsulot</b>\n\n"
-        f"Nom: <b>{esc(d.get('name'))}</b>\n"
-        f"Kategoriya: {esc(d.get('cat'))}\n"
-        f"Narx: {fmt(d.get('price'))}\n"
-        f"Eski narx: {fmt(d.get('old')) if d.get('old') else '—'}\n"
-        f"O'lchamlar: {esc(d.get('sizes') or '—')}\n"
-        f"Ranglar: {esc(d.get('colors') or '—')}\n"
-        f"Material: {esc(d.get('material') or '—')}\n"
-        f"Tavsif: {esc(d.get('descr') or '—')}\n"
-        f"Rasm: {has_img}\n\n"
+        "🧾 <b>Yangi mahsulot</b>\n"
+        f"{DIV}\n"
+        f"<b>Nom:</b> {esc(d.get('name'))}\n"
+        f"<b>Kategoriya:</b> {esc(d.get('cat'))}\n"
+        f"<b>Narx:</b> <code>{fmt(d.get('price'))}</code>\n"
+        f"<b>Eski narx:</b> {fmt(d.get('old')) if d.get('old') else '—'}\n"
+        f"<b>Qoldiq:</b> {d.get('stock', 10)} dona\n"
+        f"<b>O'lchamlar:</b> {esc(d.get('sizes') or '—')}\n"
+        f"<b>Ranglar:</b> {esc(d.get('colors') or '—')}\n"
+        f"<b>Material:</b> {esc(d.get('material') or '—')}\n"
+        f"<b>Tavsif:</b> <i>{esc(d.get('descr') or '—')}</i>\n"
+        f"<b>🎨 Rang rasmlari:</b>\n{(chr(10).join(f'• {esc(c)}: ✅ {len(v)} ta' for c, v in (d.get('color_images') or {}).items() if v) or '— yo‘q')}\n"
+        f"{DIV}\n"
         "Saqlaymizmi?",
         {"inline_keyboard": [
             [{"text": "✅ Saqlash", "callback_data": "padd:save"},
@@ -649,43 +1034,40 @@ def padd_handle_message(chat, msg, text, sender):
         ADD_FLOW.pop(chat, None)
         sender["send"](chat, "ℹ️ Mahsulot qo'shish to'xtatildi.")
         return False
+    if st["step"] >= len(PRODUCT_STEPS):
+        return False
+    if st.get("color_phase"):
+        photos = msg.get("photo") or []
+        doc = msg.get("document") or {}
+        fid = (photos[-1].get("file_id") if photos else None) or doc.get("file_id")
+        return padd_handle_color(chat, msg, text, sender, fid)
     key = PRODUCT_STEPS[st["step"]][0]
-    photos = msg.get("photo") or []
-    doc = msg.get("document") or {}
-    fid = (photos[-1].get("file_id") if photos else None) or doc.get("file_id")
     if key == "cat":
         sender["send"](chat, "👆 Kategoriyani yuqoridagi tugmalardan tanlang.")
         padd_prompt(chat, sender)
         return True
-    if key == "photos":
-        imgs = st["data"].setdefault("images", [])
-        if text.lower() in ("tayyor", "ok", "tamom", "done", "bo'ldi"):
-            if not imgs:
-                sender["send"](chat, "❗️ Kamida 1 ta rasm yuboring yoki «-» deb o'tkazib yuboring.")
-                return True
-            padd_advance(chat, sender)
+    if st.get("await_custom"):
+        field = st.pop("await_custom")
+        if field == "colors":
+            st["data"]["color_sel"] = []
+        err = padd_store(chat, field, text)
+        if err:
+            st["await_custom"] = field
+            sender["send"](chat, err)
             return True
-        if text == "-":
-            padd_advance(chat, sender)
-            return True
-        if fid:
-            if len(imgs) >= 4:
-                sender["send"](chat, "❗️ Maksimal 4 ta rasm. «tayyor» deb yozing.")
-                return True
-            imgs.append("tg:" + fid)
-        elif text:
-            for u in text.split():
-                if len(imgs) < 4:
-                    imgs.append("url:" + u)
-        else:
-            sender["send"](chat, "📸 Rasmni foto qilib yuboring, URL yozing yoki «tayyor» deb yozing.")
-            return True
-        if len(imgs) >= 4:
-            sender["send"](chat, "✅ 4/4 rasm qabul qilindi.")
-            padd_advance(chat, sender)
-        else:
-            sender["send"](chat, f"✅ {len(imgs)}/4 rasm. Yana yuboring yoki «tayyor» deb yozing.")
+        padd_advance(chat, sender)
         return True
+    if key in ("price", "old", "stock", "sizes", "colors", "material"):
+        # Tugma o'rniga yozib yuborilsa ham qabul qilamiz
+        if key == "colors":
+            st["data"]["color_sel"] = []
+        err = padd_store(chat, key, text)
+        if err:
+            sender["send"](chat, err + "\n\nTugmalardan tanlang yoki to'g'ri yozing.")
+            return True
+        padd_advance(chat, sender)
+        return True
+    # ("photos" qadami olib tashlangan — rasmlar faqat ranglar uchun yig'iladi)
     if not text:
         sender["send"](chat, "✍️ Iltimos, matn ko'rinishida yozing.")
         return True
@@ -700,10 +1082,12 @@ def send_products_admin(chat, sender):
         return
     lines, kb = [], []
     for p in ps:
-        off = "" if p.get("active", 1) else " (o'chirilgan)"
-        lines.append(f"#{p['id']} <b>{esc(p['name'])}</b> — {fmt(p['price'])} · {esc(p['cat'])}{off}")
+        st = "✅" if p.get("active", 1) else "🚫"
+        lines.append(f"{st} <b>{esc(p['name'])}</b>\n"
+                     f"   <code>#{p['id']}</code> · {fmt(p['price'])} · <i>{esc(p['cat'])}</i>")
         kb.append([{"text": f"🗑 #{p['id']} {p['name'][:22]}", "callback_data": f"pdel:{p['id']}"}])
-    sender["send"](chat, "📦 <b>Mahsulotlar:</b>\n\n" + "\n".join(lines) + "\n\n➕ /addproduct",
+    sender["send"](chat, f"📦 <b>Mahsulotlar ({len(ps)} ta)</b>\n\n" + "\n\n".join(lines)
+                   + "\n\n➕ Yangi: /addproduct",
                    {"inline_keyboard": kb})
 
 
@@ -766,6 +1150,66 @@ def process_update(u, sender):
             elif what == "cancel":
                 sender["answer"](q["id"], "Bekor qilindi")
                 padd_cancel(from_id, sender)
+            elif what == "set":
+                # padd:set:{maydon}:{qiymat} — qadam tugmasi
+                rest = act[2] if len(act) > 2 else ""
+                field, _, value = rest.partition(":")
+                st = ADD_FLOW.get(from_id)
+                if not st or st.get("step", 0) >= len(PRODUCT_STEPS) \
+                        or PRODUCT_STEPS[st["step"]][0] != field:
+                    sender["answer"](q["id"], "Eski tugma ⛔")
+                    return
+                if field == "colors":
+                    st["data"]["color_sel"] = []
+                err = padd_store(from_id, field, value)
+                if err:
+                    sender["answer"](q["id"], err)
+                    return
+                sender["answer"](q["id"], "Saqlangan ✅")
+                padd_advance(from_id, sender)
+            elif what == "custom":
+                # padd:custom:{maydon} — qo'lda yozish
+                field = act[2] if len(act) > 2 else ""
+                st = ADD_FLOW.get(from_id)
+                if not st or st.get("step", 0) >= len(PRODUCT_STEPS) \
+                        or PRODUCT_STEPS[st["step"]][0] != field:
+                    sender["answer"](q["id"], "Eski tugma ⛔")
+                    return
+                st["await_custom"] = field
+                sender["answer"](q["id"], "")
+                lbl = FIELD_LABELS.get(field, field)
+                sender["send"](from_id, f"✍️ <b>{esc(lbl)}</b> ni yozib yuboring:\n\n<i>/cancel — bekor qilish</i>")
+            elif what == "color":
+                # padd:color:{rang} — rang tanlash, padd:color:done — tayyor
+                arg = act[2] if len(act) > 2 else ""
+                st = ADD_FLOW.get(from_id)
+                if not st or st.get("step", 0) >= len(PRODUCT_STEPS) \
+                        or PRODUCT_STEPS[st["step"]][0] != "colors":
+                    sender["answer"](q["id"], "Eski tugma ⛔")
+                    return
+                if arg == "done":
+                    sel = st["data"].get("color_sel", [])
+                    if not sel:
+                        sender["answer"](q["id"], "Kamida bitta rang tanlang ⛔")
+                        return
+                    st["data"]["colors"] = ",".join(sel)
+                    sender["answer"](q["id"], "Tayyor ✅")
+                    padd_advance(from_id, sender)
+                    return
+                sel = st["data"].setdefault("color_sel", [])
+                if arg in sel:
+                    sel.remove(arg)
+                else:
+                    sel.append(arg)
+                sender["answer"](q["id"], arg)
+                try:
+                    mid = (q.get("message") or {}).get("message_id")
+                    key, prompt = PRODUCT_STEPS[st["step"]]
+                    sender["edit"](from_id, mid,
+                                   prompt + "\n\n<i>/cancel — bekor qilish</i>",
+                                   _step_keyboard(st, key))
+                except Exception:
+                    pass
             return
         if data.startswith("order:"):
             _, oid_s, action = data.split(":")
@@ -792,9 +1236,31 @@ def process_update(u, sender):
                 elif action == "cancelled":
                     notify_user(oid, f"❌ <b>Buyurtma bekor qilindi.</b>\n{user_status_text(get_order(oid))}")
             return
-        if data == "orders:10":
+        if data == "olist:noop":
+            sender["answer"](q["id"], "Shu yerda turganmiz 👆")
+            return
+        if data == "orders:10" or data.startswith("orders:"):
+            # Buyurtmalar ro'yxati — yangi xabar (kartochkadagi "Ro'yxat" tugmasi uchun)
+            parts = data.split(":")
+            filt = parts[1] if len(parts) > 2 and parts[1] in ORDER_FILTERS else "pending"
+            try:
+                page = int(parts[2]) if len(parts) > 2 else 0
+            except ValueError:
+                page = 0
             sender["answer"](q["id"], "")
-            send_orders_list(from_id, sender)
+            send_orders_list(from_id, sender, filt, page)
+            return
+        if data.startswith("olist:"):
+            # Ro'yxat ichida navigatsiya — shu xabarni tahrirlash
+            parts = data.split(":")
+            filt = parts[1] if len(parts) > 2 and parts[1] in ORDER_FILTERS else "pending"
+            try:
+                page = int(parts[2]) if len(parts) > 2 else 0
+            except ValueError:
+                page = 0
+            sender["answer"](q["id"], "")
+            mid = (q.get("message") or {}).get("message_id")
+            send_orders_list(from_id, sender, filt, page, edit_mid=mid)
             return
         if data == "stats":
             sender["answer"](q["id"], "")
@@ -870,15 +1336,16 @@ def process_update(u, sender):
             sender["send"](chat, payment_instructions(get_order(oid)))
             return
         if chat in ADMIN_IDS:
-            sender["send"](chat, "👋 <b>SAMA BASIC — admin panel</b>\n\n"
-                                 "Buyruqlar:\n"
-                                 "/orders — so'nggi buyurtmalar\n"
-                                 "/stats — statistika\n"
-                                 "/addproduct — yangi mahsulot qo'shish\n"
-                                 "/products — mahsulotlar ro'yxati\n"
-                                 "/promo_add KOD FOIZ [SONI] — promokod yaratish\n"
-                                 "/setcard KARTA — oldindan to'lov kartasi\n"
-                                 "/help — yordam",
+            sender["send"](chat, "👋 <b>SAMA BASIC — admin panel</b>\n"
+                                 f"{DIV}\n"
+                                 "<b>Buyruqlar</b>\n\n"
+                                 "📋 /orders — <i>so'nggi buyurtmalar</i>\n"
+                                 "📊 /stats — <i>statistika</i>\n"
+                                 "➕ /addproduct — <i>yangi mahsulot</i>\n"
+                                 "📦 /products — <i>mahsulotlar ro'yxati</i>\n"
+                                 "🎟 /promo_add KOD FOIZ [SONI] — <i>promokod</i>\n"
+                                 "💳 /setcard KARTA — <i>to'lov kartasi</i>\n"
+                                 "ℹ️ /help — <i>yordam</i>",
                            {"inline_keyboard": [
                                [{"text": "📋 Buyurtmalar", "callback_data": "orders:10"}],
                                [{"text": "➕ Mahsulot qo'shish", "callback_data": "padd:new"},
@@ -906,10 +1373,11 @@ def process_update(u, sender):
         lines = []
         for r in rows:
             d = dict(r)
-            lines.append(f"{STATUS.get(d['status'], '')} <b>{esc(d['no'])}</b> — <b>{fmt(d['total'])}</b>")
+            lines.append(f"{STATUS.get(d['status'], '')} <b>{esc(d['no'])}</b>\n"
+                         f"   💰 <b>{fmt(d['total'])}</b>")
             if d["status"] == "delivered":
                 kb.append([{"text": f"✅ Qabul qildim ({d['no']})", "callback_data": f"recv:{d['id']}"}])
-        sender["send"](chat, "📦 <b>Buyurtmalarim:</b>\n\n" + "\n".join(lines),
+        sender["send"](chat, "📦 <b>Buyurtmalarim</b>\n\n" + "\n\n".join(lines),
                        {"inline_keyboard": kb} if kb else None)
         return
 
@@ -917,12 +1385,13 @@ def process_update(u, sender):
         sender["send"](chat, "ℹ️ Buyurtma uchun saytdan foydalaning.\n/myorders — buyurtmalarim")
         return
     if text.startswith("/panel"):
-        sender["send"](chat, "👋 <b>SAMA BASIC — admin panel</b>\n\n"
-                             "/orders — buyurtmalar\n"
-                             "/addproduct — mahsulot qo'shish\n"
-                             "/products — mahsulotlar\n"
-                             "/stats — statistika\n"
-                             "/promo_list — promokodlar",
+        sender["send"](chat, "👋 <b>SAMA BASIC — admin panel</b>\n"
+                             f"{DIV}\n"
+                             "📋 /orders — <i>buyurtmalar</i>\n"
+                             "➕ /addproduct — <i>mahsulot qo'shish</i>\n"
+                             "📦 /products — <i>mahsulotlar</i>\n"
+                             "📊 /stats — <i>statistika</i>\n"
+                             "🎟 /promo_list — <i>promokodlar</i>",
                        {"inline_keyboard": [
                            [{"text": "📋 Buyurtmalar", "callback_data": "orders:10"}],
                            [{"text": "➕ Mahsulot qo'shish", "callback_data": "padd:new"},
@@ -991,20 +1460,55 @@ def process_update(u, sender):
         sender["send"](chat, "Noma'lum buyruq. /help ni bosing.")
 
 
-def send_orders_list(chat, sender):
-    orders = list_orders(10)
+def send_orders_list(chat, sender, filt="pending", page=0, edit_mid=None):
+    """Buyurtmalar ro'yxati: status bo'yicha filtr + sahifalash.
+    filt: pending (kutulmoqda) / accepted (qabul) / rejected (rad) / all.
+    edit_mid berilsa o'sha xabar tahrirlanadi, aks holda yangi xabar yuboriladi."""
+    if filt not in ORDER_FILTERS:
+        filt = "pending"
+    label, statuses = ORDER_FILTERS[filt]
+    total = count_orders(statuses)
+    maxpage = max(0, (total - 1) // PAGE_SIZE)
+    page = max(0, min(page, maxpage))
+    orders = list_orders_filtered(statuses, PAGE_SIZE, page * PAGE_SIZE)
+
+    counts = {k: count_orders(v) for k, (_, v) in ORDER_FILTERS.items() if k != "all"}
+    counts["all"] = count_orders(None)
+
+    def _tab(key, title):
+        if filt == key:
+            return {"text": f"● {title} ({counts[key]})", "callback_data": "olist:noop"}
+        return {"text": f"{title} ({counts[key]})", "callback_data": f"olist:{key}:0"}
+
+    tabs = [[_tab("pending", "⏳ Kutulmoqda"), _tab("accepted", "✅ Qabul")],
+            [_tab("rejected", "❌ Rad"), _tab("all", "📋 Barchasi")]]
+    head = (f"📋 <b>Buyurtmalar · {label}</b>\n"
+            f"<i>Jami: {total} ta · Sahifa {page + 1}/{maxpage + 1}</i>")
     if not orders:
-        sender["send"](chat, "📭 Hozircha buyurtmalar yo'q.")
+        sender["send"](chat, head + "\n\n📭 Bu bo'limda buyurtma yo'q.",
+                       {"inline_keyboard": tabs})
         return
-    kb_rows = []
-    lines = []
+    lines, kb_rows = [], []
     for o in orders:
-        lines.append(f"{STATUS.get(o['status'], '')} <b>{esc(o['no'])}</b> — {esc(o['name'])} — "
-                     f"<b>{fmt(o['total'])}</b>")
+        lines.append(f"{STATUS.get(o['status'], '')} <b>{esc(o['no'])}</b>\n"
+                     f"   👤 {esc(o['name'])} · 💰 <b>{fmt(o['total'])}</b> · <code>#{o['id']}</code>")
         kb_rows.append([{"text": f"#{o['id']} {o['no']}", "callback_data": f"view:{o['id']}"}])
-    # view tugmasi hozircha ro'yxat ichida ko'rsatish uchun:
-    sender["send"](chat, "📋 <b>So'nggi buyurtmalar:</b>\n\n" + "\n".join(lines),
-                   {"inline_keyboard": kb_rows})
+    nav = []
+    if page > 0:
+        nav.append({"text": "⬅️ Oldingi", "callback_data": f"olist:{filt}:{page - 1}"})
+    nav.append({"text": f"· {page + 1}/{maxpage + 1} ·", "callback_data": "olist:noop"})
+    if (page + 1) * PAGE_SIZE < total:
+        nav.append({"text": "Keyingi ➡️", "callback_data": f"olist:{filt}:{page + 1}"})
+    text = head + "\n\n" + "\n\n".join(lines)
+    kb = {"inline_keyboard": tabs + kb_rows + [nav]}
+    if edit_mid:
+        try:
+            r = sender["edit"](chat, edit_mid, text, kb)
+            if isinstance(r, dict) and r.get("ok"):
+                return
+        except Exception:
+            pass
+    sender["send"](chat, text, kb)
 
 
 def send_promos(chat, sender):
@@ -1016,19 +1520,21 @@ def send_promos(chat, sender):
     kb = []
     for p in promos:
         left = "cheksiz" if not p["max_uses"] else f"{p['used']}/{p['max_uses']}"
-        lines.append(f"🎟 <b>{esc(p['code'])}</b> — {p['pct']}% ({left})")
+        lines.append(f"🎟 <code>{esc(p['code'])}</code> — <b>{p['pct']}%</b> <i>({left})</i>")
         kb.append([{"text": f"❌ {p['code']}", "callback_data": f"promo_del:{p['code']}"}])
     kb.append([{"text": "📋 Ro'yxat", "callback_data": "orders:10"}])
-    sender["send"](chat, "🎟 <b>Promokodlar:</b>\n\n" + "\n".join(lines), {"inline_keyboard": kb})
+    sender["send"](chat, "🎟 <b>Promokodlar</b>\n\n" + "\n".join(lines), {"inline_keyboard": kb})
 
 
 def send_stats(chat, sender):
     s = stats()
-    by = "\n".join(f"{STATUS.get(k, k)}: <b>{v}</b>" for k, v in s["by"].items()) or "—"
+    by = "\n".join(f"{STATUS.get(k, k)} — <b>{v} ta</b>" for k, v in s["by"].items()) or "—"
     sender["send"](chat,
                    f"📊 <b>Statistika</b>\n\n"
-                   f"Jami: <b>{s['count']}</b> ta — <b>{fmt(s['sum'])}</b>\n"
-                   f"Bugun: <b>{s['today_count']}</b> ta — <b>{fmt(s['today_sum'])}</b>\n\n"
+                   f"📦 <b>Jami</b>\n{s['count']} ta · <b>{fmt(s['sum'])}</b>\n\n"
+                   f"📅 <b>Bugun</b>\n{s['today_count']} ta · <b>{fmt(s['today_sum'])}</b>\n"
+                   f"{DIV}\n"
+                   f"<b>Holatlar bo'yicha</b>\n\n"
                    f"{by}")
 
 
@@ -1091,6 +1597,20 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/promo":
             code = (parse_qs(urlparse(self.path).query).get("code", [""])[0] or "")
             self._json(200, check_promo(code))
+        elif path == "/api/order":
+            # Buyurtma holatini tekshirish (sayt to'lov tasdiqlangach ekranni yangilaydi)
+            qs = parse_qs(urlparse(self.path).query)
+            try:
+                _oid = int((qs.get("id", [""])[0] or ""))
+            except ValueError:
+                _oid = 0
+            _o = get_order(_oid) if _oid else None
+            if not _o:
+                self._json(404, {"ok": False, "error": "buyurtma topilmadi"})
+            else:
+                self._json(200, {"ok": True, "id": _o["id"], "no": _o["no"],
+                                 "status": _o["status"], "total": _o["total"],
+                                 "prepay": _o["prepay"]})
         elif path == "/api/products":
             self._json(200, {"ok": True, "products": [public_product(r) for r in product_list()]})
         elif path.startswith("/api/img/"):
@@ -1101,6 +1621,15 @@ class Handler(BaseHTTPRequestHandler):
                 _pid = None
             _idx = int(rest[1]) if len(rest) > 1 and rest[1].isdigit() else 0
             self._serve_image(_pid, _idx)
+        elif path.startswith("/api/cimg/"):
+            rest = path[len("/api/cimg/"):].split("/")
+            try:
+                _pid = int(rest[0])
+            except (ValueError, IndexError):
+                _pid = None
+            _n = int(rest[1]) if len(rest) > 1 and rest[1].isdigit() else -1
+            _m = int(rest[2]) if len(rest) > 2 and rest[2].isdigit() else -1
+            self._serve_cimg(_pid, _n, _m)
         else:
             self.send_response(404)
             self._cors()
@@ -1125,7 +1654,25 @@ class Handler(BaseHTTPRequestHandler):
         imgs = _parse_imgs(p.get("img"))
         if idx < 0 or idx >= len(imgs):
             self.send_response(404); self._cors(); self.end_headers(); return
-        img = imgs[idx]
+        self._serve_ref(imgs[idx])
+
+    def _serve_cimg(self, pid, n, m):
+        """Rang rasmini qaytaradi: /api/cimg/{pid}/{rang_index}/{rasm_index}."""
+        if pid is None:
+            self.send_response(404); self._cors(); self.end_headers(); return
+        p = product_get(pid)
+        if not p:
+            self.send_response(404); self._cors(); self.end_headers(); return
+        cnames = sorted(_parse_color_imgs(p.get("color_imgs")).keys())
+        if n < 0 or n >= len(cnames):
+            self.send_response(404); self._cors(); self.end_headers(); return
+        imgs = _parse_color_imgs(p.get("color_imgs"))[cnames[n]]
+        if m < 0 or m >= len(imgs):
+            self.send_response(404); self._cors(); self.end_headers(); return
+        self._serve_ref(imgs[m])
+
+    def _serve_ref(self, img):
+        """Bitta rasm manbasi: URL bo'lsa redirect, Telegram fayl bo'lsa proxy."""
         if img.startswith("url:"):
             self.send_response(302); self._cors()
             self.send_header("Location", img[4:])
@@ -1204,7 +1751,8 @@ def main():
     init_db()
     srv = HTTPServer(("0.0.0.0", HTTP_PORT), Handler)
     threading.Thread(target=poll_loop, daemon=True).start()
-    print(f"API http://0.0.0.0:{HTTP_PORT} — db: {DB_PATH}", flush=True)
+    dblabel = f"mysql://{MYSQL_USER}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DB}" if DB_TYPE == "mysql" else DB_PATH
+    print(f"API http://0.0.0.0:{HTTP_PORT} — db: {dblabel}", flush=True)
     srv.serve_forever()
 
 
